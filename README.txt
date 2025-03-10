@@ -8,3 +8,6 @@ datasets
 
 - csv = just text
 - bmp = image
+
+
+environment.yml has everything but a lot of extra dependencies, need to clean it up!

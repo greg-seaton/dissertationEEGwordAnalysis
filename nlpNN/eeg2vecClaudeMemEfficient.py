@@ -226,10 +226,10 @@ def train_memory_efficient(train_files, test_files, y_train, y_test, epochs=20):
                 cosine_similarities.append(cosine_sim)
                 
                 # Print a few examples
-                if i < 5:
+                if i < 15:
                     print(f"Sample {i}:")
-                    print(f"  Predicted Vector: {pred_vector[:5]}...")
-                    print(f"  True Vector: {true_vector[:5]}...")
+                    print(f"  Predicted Vector: {pred_vector[:15]}...")
+                    print(f"  True Vector: {true_vector[:15]}...")
                     print(f"  Cosine Similarity: {cosine_sim:.4f}")
                     print("-" * 50)
         except Exception as e:
@@ -275,6 +275,6 @@ if __name__ == "__main__":
     )
     
     # Save model if desired
-    # model.save('spectrogram_word_model.h5')
+    model.save('../savedModels/spectrogram_word_model.keras')
     
     print("Training complete!")

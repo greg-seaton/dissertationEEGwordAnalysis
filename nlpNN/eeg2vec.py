@@ -6,11 +6,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, Flatten, Dense, Dropout, Concatenate, BatchNormalization
-from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import SGD, Adam
 import tensorflow.keras.backend as K
 from tensorflow.keras.losses import Loss
+from tensorflow.keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 import re
+import torch
+import torch.nn.functional as F
 
 #claude suggested method to use less memory
 import gc
@@ -21,25 +24,35 @@ tf.keras.backend.clear_session()
 import gensim.downloader as api
 NLPmodel = api.load("glove-wiki-gigaword-100")  # 100D, ~91MB
 
+##saves the model so progress is not lost if crashing early
+saveModel = ModelCheckpoint(
+    "model_epoch_{epoch:02d}.h5",  # Save with epoch number (e.g., model_epoch_01.h5)
+    save_best_only=True,  # Saves only if it improves
+    monitor="val_loss",  # Monitor validation loss
+    mode="min",  # Save when loss decreases
+    verbose=1
+)
+
 
 #removes index from the end of the word and gets its vector
 #alerts user if word is not contained in the model
+#also normalises the vector
 def getVector(word):
     word = re.sub(r"\d+$", "", word.lower())
     if word in NLPmodel:
-        return NLPmodel[word]
+        vector = NLPmodel[word]
+        norm = np.linalg.norm(vector)
+        if norm == 0:
+            return vector
+        return vector / norm
     else:
         print(f"Warning: Word '{word}' not found in model vocabulary")
         return np.zeros(100)
+    
 
-#used to measure how similar the predicted vector is from the actual one
 def cosine_similarity_loss(y_true, y_pred):
-    # Add small epsilon to prevent division by zero
-    epsilon = 1e-7
-    y_true_norm = K.l2_normalize(y_true, axis=-1)
-    y_pred_norm = K.l2_normalize(y_pred, axis=-1)
-    cosine = K.sum(y_true_norm * y_pred_norm, axis=-1)
-    return 1 - cosine
+    return 1 - K.mean(K.sum(y_true * y_pred, axis=-1) / 
+                      (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1))))
 
 #initalises where to find the test and train files and labels them
 def NN_prep(folders_path, folders_names):
@@ -61,7 +74,7 @@ def NN_prep(folders_path, folders_names):
                     participant_words = os.listdir(participant_path)
                     random.shuffle(participant_words)
                     # participant_words = participant_words[:800] #####?
-                    split_idx = int(len(participant_words) * 0.7)
+                    split_idx = int(len(participant_words) * 0.8)
                     train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]])
                     test_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]])
                     y_train.extend(getVector(word) for word in participant_words[:split_idx])  #removeIndex gets rid of the word index
@@ -75,26 +88,7 @@ def NN_prep(folders_path, folders_names):
     print(f"Length of y_test: {len(y_test)}")
     return train_files, test_files, y_train, y_test
 
-# def load_sample(folder_path):
-#     """Loads and processes 32 BMP files into 56x107x1 spectrograms."""
-#     sample_data = []
-#     files = sorted(os.listdir(folder_path))
-
-#     for file in files:
-#         file_path = os.path.join(folder_path, file)
-#         image = Image.open(file_path).convert("L")
-#         image = image.resize((107,56))
-#         image_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to [0,1]
-#         image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension
-#         sample_data.append(image_array)
-#     if len(sample_data) != 32:
-#         print(f"Warning: {folder_path} has {len(sample_data)} files! Should be 32")
-
-#     # plt.imshow(sample_data[0].squeeze(), cmap='gray')
-#     # plt.title(f"Resized Image from {folder_path}")
-#     # plt.show()
-#     return sample_data  # Returns list of 32 arrays of shape (56, 107, 1)
-
+#loads all the data required for each word (no EEGs, width, height, grayscale)
 def load_sample(folder_path):
     files = sorted(os.listdir(folder_path))[:32]  
     sample_data = np.zeros((32, 56, 107, 1), dtype=np.float32)  
@@ -139,6 +133,7 @@ def spectrogram_CNN():
     model = Model(inputs=inputs, outputs=output)
     return model
 
+
 def NN(train_files, test_files, y_train, y_test):
     # Prepare training and testing data
     X_train_samples = [load_sample(file) for file in train_files] 
@@ -154,10 +149,11 @@ def NN(train_files, test_files, y_train, y_test):
 
     # Create and compile model
     model = spectrogram_CNN()
-    model.compile(optimizer=SGD(learning_rate=0.00064), loss=cosine_similarity_loss, metrics=['accuracy'])
+    model.compile(optimizer=Adam(learning_rate=0.00064), loss=cosine_similarity_loss, metrics=['accuracy'])
 
     # Train model
-    model.fit(X_train, y_train, batch_size=24, epochs=100, verbose=1, shuffle=True)
+    #changed from 100 to 40 to get around memory limitations
+    model.fit(X_train, y_train, batch_size=12, epochs=100, verbose=1, shuffle=True, callbacks=saveModel)
 
     # Evaluate model
     test_loss, test_acc = model.evaluate(X_test, y_test)
@@ -172,8 +168,8 @@ def NN(train_files, test_files, y_train, y_test):
     print("\nTest Predictions and Cosine Similarities:")
     for i in range(min(30, len(y_test))):  # Print first 5 samples
         print(f"Sample {i}:")
-        print(f"  Predicted Vector: {predictions[i][:5]}...")  # Show first 5 elements
-        print(f"  True Vector: {y_test[i][:5]}...")
+        print(f"  Predicted Vector: {predictions[i][:45]}...")  # Show first 20 elements
+        print(f"  True Vector: {y_test[i][:45]}...")
         print(f"  Cosine Similarity: {cosine_similarities[i]:.4f}")
         print("-" * 50)
 
@@ -191,4 +187,6 @@ train_files, test_files, y_train, y_test = NN_prep(folders_path, folders_names)
 # Train and evaluate CNN
 model = NN(train_files, test_files, y_train, y_test)
 
-#get it to show the image after it has been resized to see whats up
+
+#sgd test loss (only 40 epochs)
+#Test loss: 0.8670620322227478, Test Accuracy: 0.16049382090568542
