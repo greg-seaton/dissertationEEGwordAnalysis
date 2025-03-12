@@ -9,11 +9,13 @@ from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, Flatten, Dense, Dr
 from tensorflow.keras.optimizers import SGD, Adam
 import tensorflow.keras.backend as K
 from tensorflow.keras.losses import Loss
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import matplotlib.pyplot as plt
 import re
 import torch
 import torch.nn.functional as F
+from datetime import datetime
+
 
 #claude suggested method to use less memory
 import gc
@@ -24,12 +26,21 @@ tf.keras.backend.clear_session()
 import gensim.downloader as api
 NLPmodel = api.load("glove-wiki-gigaword-100")  # 100D, ~91MB
 
-##saves the model so progress is not lost if crashing early
-saveModel = ModelCheckpoint(
-    "model_epoch_{epoch:02d}.h5",  # Save with epoch number (e.g., model_epoch_01.h5)
-    save_best_only=True,  # Saves only if it improves
-    monitor="val_loss",  # Monitor validation loss
-    mode="min",  # Save when loss decreases
+
+#setup folders
+current_directory = os.path.dirname(os.path.abspath(__file__))
+saveFolderName = datetime.now().strftime("%Y-%m-%d_%H-%M")
+saveFolder = os.path.join(current_directory, "savedNLPmodels")
+saveFolder = os.path.join(saveFolder, saveFolderName)
+
+os.makedirs(saveFolder, exist_ok=True)
+
+
+##saves the weights of the model so progress is not lost if crashing early
+saveModelCallback = ModelCheckpoint(
+    os.path.join(saveFolder, "best_model.keras"), 
+    monitor="val_loss",
+    save_best_only=True,
     verbose=1
 )
 
@@ -51,8 +62,12 @@ def getVector(word):
     
 
 def cosine_similarity_loss(y_true, y_pred):
-    return 1 - K.mean(K.sum(y_true * y_pred, axis=-1) / 
-                      (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1))))
+    y_true = K.l2_normalize(y_true, axis=-1)
+    y_pred = K.l2_normalize(y_pred, axis=-1)
+    return 1 - K.sum(y_true * y_pred, axis=-1)
+
+def cosine_similarity(y_true, y_pred):
+    return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))
 
 #initalises where to find the test and train files and labels them
 def NN_prep(folders_path, folders_names):
@@ -74,7 +89,7 @@ def NN_prep(folders_path, folders_names):
                     participant_words = os.listdir(participant_path)
                     random.shuffle(participant_words)
                     # participant_words = participant_words[:800] #####?
-                    split_idx = int(len(participant_words) * 0.8)
+                    split_idx = int(len(participant_words) * 0.7)
                     train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]])
                     test_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]])
                     y_train.extend(getVector(word) for word in participant_words[:split_idx])  #removeIndex gets rid of the word index
@@ -84,8 +99,6 @@ def NN_prep(folders_path, folders_names):
 
     y_train = np.array(y_train, dtype=np.float32)
     y_test = np.array(y_test, dtype=np.float32)
-    print(f"Length of y_train: {len(y_train)}")
-    print(f"Length of y_test: {len(y_test)}")
     return train_files, test_files, y_train, y_test
 
 #loads all the data required for each word (no EEGs, width, height, grayscale)
@@ -100,21 +113,6 @@ def load_sample(folder_path):
 
     return sample_data
 
-# def spectrogram_CNN():
-#     """Creates a CNN model with optimal parameters from Optuna."""
-#     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
-#     cnn_outputs = []
-#     for input_layer in inputs:
-#         x = Conv2D(filters=40, kernel_size=(7, 5), activation='relu', padding='same')(input_layer)
-#         x = MaxPool2D(pool_size=(3, 3))(x)
-#         x = Flatten()(x)
-#         cnn_outputs.append(x)
-#     combined = Concatenate()(cnn_outputs)
-#     x = Dense(192, activation='relu')(combined)
-#     x = Dropout(0.2628)(x)
-#     output = Dense(100, activation='linear')(x)
-#     model = Model(inputs=inputs, outputs=output)
-#     return model
 
 def spectrogram_CNN():
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
@@ -123,61 +121,95 @@ def spectrogram_CNN():
         x = Conv2D(filters=32, kernel_size=(5, 5), activation='relu', padding='same')(input_layer)
         x = BatchNormalization()(x)
         x = MaxPool2D(pool_size=(3, 3))(x)
-        x = Flatten()(x)
+        x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = MaxPool2D(pool_size=(2, 2))(x)
+        x = Flatten()(x)  # Consider replacing this with GlobalAveragePooling2D()
         cnn_outputs.append(x)
     combined = Concatenate()(cnn_outputs)
     x = Dense(256, activation='relu')(combined)
     x = BatchNormalization()(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.3)(x)  # Increased dropout
     output = Dense(100, activation='linear')(x)
     model = Model(inputs=inputs, outputs=output)
     return model
 
-
 def NN(train_files, test_files, y_train, y_test):
-    # Prepare training and testing data
+    # Making validation set
+    val_idx = int(len(test_files) * 0.5)
+
     X_train_samples = [load_sample(file) for file in train_files] 
-    X_test_samples = [load_sample(file) for file in test_files] 
+    X_test_samples = [load_sample(test_files[i]) for i in range(0, val_idx)]
+    X_valid_samples = [load_sample(test_files[i]) for i in range(val_idx, len(test_files))]
 
     # Convert to list of 32 arrays, each with shape (n_samples, 56, 107, 1)
     X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
     X_test = [np.array([sample[i] for sample in X_test_samples]) for i in range(32)]
+    X_valid = [np.array([sample[i] for sample in X_valid_samples]) for i in range(32)]
 
-    # Check for NaNs or infinities
-    print("Any NaNs in X_train:", any(np.any(np.isnan(x)) for x in X_train))
-    print("Any infs in X_train:", any(np.any(np.isinf(x)) for x in X_train))
+    # Ensure labels match the split of test files
+
+    y_test_split = np.array(y_test)  # Convert to numpy array for indexing consistency
+    y_test = y_test_split[:val_idx]   # First half - for X_test
+    y_valid = y_test_split[val_idx:]
+
+    # Debugging shape mismatches
+    print(f"X_train shape: {X_train[0].shape}, y_train shape: {len(y_train)}")
+    print(f"X_valid shape: {X_valid[0].shape}, y_valid shape: {len(y_valid)}")
+    print(f"X_test shape: {X_test[0].shape}, y_test shape: {len(y_test)}")
+
+    np.savez(os.path.join(saveFolder, "test_data.npz"), 
+            X_test=X_test,  # Convert to a single array
+            y_test=y_test)
 
     # Create and compile model
     model = spectrogram_CNN()
-    model.compile(optimizer=Adam(learning_rate=0.00064), loss=cosine_similarity_loss, metrics=['accuracy'])
+    model.compile(optimizer=Adam(learning_rate=0.00064), loss=cosine_similarity_loss, metrics=['accuracy', cosine_similarity])
+
+    #implementing early stopping
+    early_stopping = EarlyStopping(
+        monitor="val_loss",  # Monitor validation loss
+        patience=10,         # Stop if val_loss does not improve for 10 epochs
+        restore_best_weights=True,  # Restore model weights from best epoch
+        verbose=1
+    )
 
     # Train model
-    #changed from 100 to 40 to get around memory limitations
-    model.fit(X_train, y_train, batch_size=12, epochs=100, verbose=1, shuffle=True, callbacks=saveModel)
+    model.fit(
+        X_train, y_train,
+        batch_size=8,
+        epochs=2,
+        verbose=1,
+        shuffle=True,
+        callbacks=[saveModelCallback, early_stopping],
+        validation_data=(X_valid, y_valid)
+    )
 
     # Evaluate model
-    test_loss, test_acc = model.evaluate(X_test, y_test)
-    print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}")
+    test_loss, test_acc, test_cosine_sim = model.evaluate(X_test, y_test)
+    print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}, Test Cosine Similarity: {test_cosine_sim}")
+    with open(os.path.join(saveFolder, "results.txt"), "w") as f:
+        f.write(f"Test loss: {test_loss}\n")
+        f.write(f"Test Accuracy: {test_acc}\n")
+        f.write(f"Test Cosine Similarity: {test_cosine_sim}\n")
 
-    predictions = model.predict(X_test, verbose=0)  
+
+    predictions = model.predict(X_test, verbose=0)
 
     cosine_similarities = np.sum(predictions * y_test, axis=-1) / (
         np.linalg.norm(predictions, axis=-1) * np.linalg.norm(y_test, axis=-1)
     )
 
     print("\nTest Predictions and Cosine Similarities:")
-    for i in range(min(30, len(y_test))):  # Print first 5 samples
+    for i in range(min(30, len(y_test))):
         print(f"Sample {i}:")
-        print(f"  Predicted Vector: {predictions[i][:45]}...")  # Show first 20 elements
+        print(f"  Predicted Vector: {predictions[i][:45]}...")
         print(f"  True Vector: {y_test[i][:45]}...")
         print(f"  Cosine Similarity: {cosine_similarities[i]:.4f}")
         print("-" * 50)
 
     return model
 
-
-# Paths
-current_directory = os.path.dirname(os.path.abspath(__file__))
 folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
 folders_names = ["content", "function"]
 
@@ -188,5 +220,6 @@ train_files, test_files, y_train, y_test = NN_prep(folders_path, folders_names)
 model = NN(train_files, test_files, y_train, y_test)
 
 
+#saved results
 #sgd test loss (only 40 epochs)
 #Test loss: 0.8670620322227478, Test Accuracy: 0.16049382090568542
