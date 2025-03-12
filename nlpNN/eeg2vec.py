@@ -44,8 +44,6 @@ saveModelCallback = ModelCheckpoint(
     verbose=1
 )
 
-
-
 #removes index from the end of the word and gets its vector
 #alerts user if word is not contained in the model
 #also normalises the vector
@@ -220,6 +218,8 @@ train_files, test_files, y_train, y_test = NN_prep(folders_path, folders_names)
 # Train and evaluate CNN
 model = NN(train_files, test_files, y_train, y_test)
 
+
+print ("ended without crashing")
 
 #saved results
 #sgd test loss (only 40 epochs)

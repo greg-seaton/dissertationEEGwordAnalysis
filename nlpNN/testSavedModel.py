@@ -11,13 +11,11 @@ def cosine_similarity_loss(y_true, y_pred):
     return 1 - K.sum(y_true * y_pred, axis=-1)
 
 # Set folder path where model and test data are saved
-folder = "2025-03-12_10-08"     ##change this to look at different runs
-model_path = os.path.join("savedNLPmodels", folder, "best_model.keras")     #change this to select the correct model iteration
+folder = "2025-03-12_10-43"     ##change this to look at different runs
+model_path = os.path.join("savedNLPmodels", folder, "model_epoch02_valloss0.9231.keras")
 data_path = os.path.join("savedNLPmodels", folder, "test_data.npz")
 
-print("Checking path:", model_path)
-print("Exists:", os.path.exists(model_path))
-print("Is a file:", os.path.isfile(model_path))
+            ##if it says file not found, it probably got corrupted if the program crashed while it was saving
 
 if not (os.path.exists(model_path)):
     print ("path does not exist!")
@@ -26,21 +24,24 @@ if not (os.path.exists(model_path)):
 print(f"Loading model from: {model_path}")
 model = load_model(model_path, custom_objects={"cosine_similarity_loss": cosine_similarity_loss})
 
-
 # Load test dataset
 print(f"Loading test data from: {data_path}")
-data = np.load(data_path, allow_pickle=True)  # Ensure allow_pickle in case of saved lists
+data = np.load(data_path, allow_pickle=True)  
 
 X_test = data["X_test"]
 y_test = data["y_test"]
 
-# Convert X_test to NumPy array if it was loaded as a list
 X_test = np.array(X_test)
 y_test = np.array(y_test)
 
-# Evaluate model
-# Split X_test into 32 separate input arrays
-X_test_split = [X_test[:, i] for i in range(32)]  # Create a list of 32 arrays
+print(f"X_test shape: {X_test.shape}")
+print(f"y_test shape: {y_test.shape}")
+
+X_test = np.transpose(X_test, (1, 0, 2, 3, 4))  # Swaps first and second axes
+X_test_split = [X_test[:, i] for i in range(32)]  
+
+print(f"X_test shape: {X_test.shape}")
+print(f"y_test shape: {y_test.shape}")
 
 # Evaluate model
 print("Evaluating model...")
