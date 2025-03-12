@@ -38,11 +38,12 @@ os.makedirs(saveFolder, exist_ok=True)
 
 ##saves the weights of the model so progress is not lost if crashing early
 saveModelCallback = ModelCheckpoint(
-    os.path.join(saveFolder, "best_model.keras"), 
+    os.path.join(saveFolder, "model_epoch{epoch:02d}_valloss{val_loss:.4f}.keras"),  
     monitor="val_loss",
     save_best_only=True,
     verbose=1
 )
+
 
 
 #removes index from the end of the word and gets its vector

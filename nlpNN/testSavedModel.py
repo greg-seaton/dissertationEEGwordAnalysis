@@ -11,8 +11,8 @@ def cosine_similarity_loss(y_true, y_pred):
     return 1 - K.sum(y_true * y_pred, axis=-1)
 
 # Set folder path where model and test data are saved
-folder = "2025-03-12_10-08"
-model_path = os.path.join("savedNLPmodels", folder, "best_model.keras")
+folder = "2025-03-12_10-08"     ##change this to look at different runs
+model_path = os.path.join("savedNLPmodels", folder, "best_model.keras")     #change this to select the correct model iteration
 data_path = os.path.join("savedNLPmodels", folder, "test_data.npz")
 
 print("Checking path:", model_path)
