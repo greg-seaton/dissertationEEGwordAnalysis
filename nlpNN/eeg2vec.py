@@ -11,6 +11,9 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.losses import Loss
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
+
 import re
 import torch
 import torch.nn.functional as F
