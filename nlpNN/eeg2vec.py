@@ -90,7 +90,6 @@ def NN_prep(folders_path, folders_names):
                     print("Participant:", participant)
                     participant_words = os.listdir(participant_path)
                     random.shuffle(participant_words)
-                    # participant_words = participant_words[:800] #####?
                     split_idx = int(len(participant_words) * 0.7)
                     train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]])
                     test_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]])
