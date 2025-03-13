@@ -10,14 +10,15 @@ from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from datetime import datetime
 from sklearn.utils import shuffle
-
+import optuna
+from optuna.integration import TFKerasPruningCallback
 import matplotlib.pyplot as plt
 
 import gc
 gc.collect()
 tf.keras.backend.clear_session()
 
-#setup folders
+# Setup folders
 current_directory = os.path.dirname(os.path.abspath(__file__))
 saveFolderName = datetime.now().strftime("%Y-%m-%d_%H-%M")
 saveFolder = os.path.join(current_directory, "savedCFmodels")
@@ -25,31 +26,44 @@ saveFolder = os.path.join(saveFolder, saveFolderName)
 
 os.makedirs(saveFolder, exist_ok=True)
 
-saveModelCallback = ModelCheckpoint(
-    os.path.join(saveFolder, "model_epoch{epoch:02d}_valloss{val_loss:.4f}.keras"),  
-    monitor="val_accuracy",
-    save_best_only=True,
-    verbose=1
-)
+# Log file for Optuna study
+optuna_log_file = os.path.join(saveFolder, "optuna_log.txt")
 
-#declares CNN structure
-def spectrogram_CNN():
-    """Creates a CNN model with optimal parameters from Optuna."""
+# Function to log Optuna results
+def log_optuna_trial(trial_number, params, accuracy):
+    with open(optuna_log_file, "a") as f:
+        f.write(f"Trial {trial_number}:\n")
+        f.write(f"  Parameters: {params}\n")
+        f.write(f"  Accuracy: {accuracy}\n\n")
+
+# Modified CNN structure that accepts hyperparameters
+def spectrogram_CNN(trial):
+    """Creates a CNN model with parameters from Optuna trial."""
+    # Hyperparameters to optimize
+    filters = trial.suggest_int('filters', 16, 128, step=8)  # Number of Conv filters
+    kernel_size_h = trial.suggest_int('kernel_size_h', 3, 9, step=2)  # Kernel height
+    kernel_size_w = trial.suggest_int('kernel_size_w', 3, 9, step=2)  # Kernel width
+    pool_size = trial.suggest_int('pool_size', 2, 4)  # Pooling size (no step needed)
+    dense_units = trial.suggest_int('dense_units', 64, 512, step=32)  # Dense layer units
+    dropout_rate = trial.suggest_float('dropout_rate', 0.1, 0.5)  # Dropout rate (unchanged)
+
+    # Model structure (similar to original)
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
     cnn_outputs = []
     for input_layer in inputs:
-        x = Conv2D(filters=40, kernel_size=(7, 5), activation='relu', padding='same')(input_layer)
-        x = MaxPool2D(pool_size=(3, 3))(x)
+        x = Conv2D(filters=filters, kernel_size=(kernel_size_h, kernel_size_w), 
+                   activation='relu', padding='same')(input_layer)
+        x = MaxPool2D(pool_size=(pool_size, pool_size))(x)
         x = Flatten()(x)
         cnn_outputs.append(x)
     combined = Concatenate()(cnn_outputs)
-    x = Dense(192, activation='relu')(combined)
-    x = Dropout(0.2628)(x)
+    x = Dense(dense_units, activation='relu')(combined)
+    x = Dropout(dropout_rate)(x)
     output = Dense(1, activation='sigmoid')(x)
     model = Model(inputs=inputs, outputs=output)
     return model
 
-#extrats raw data from an EEG instance folder
+# Extract raw data from an EEG instance folder (unchanged)
 def load_sample(folder_path):
     files = sorted(os.listdir(folder_path))[:32]  
     sample_data = np.zeros((32, 56, 107, 1), dtype=np.float32)  
@@ -61,7 +75,7 @@ def load_sample(folder_path):
 
     return sample_data
 
-#goes from folders to raw data to train,test and validate
+# Goes from folders to raw data to train, test and validate (unchanged)
 def NN_prep(folders_path, folders_names):
     label_map = {"content": 0, "function": 1}
     train_files = []
@@ -89,8 +103,7 @@ def NN_prep(folders_path, folders_names):
         else:
             print(f"Folder not found: {full_path}")
 
-    testValid_files, y_testValid = shuffle(testValid_files, y_testValid, random_state=69)
-
+    testValid_files, y_testValid = shuffle(testValid_files, y_testValid)
 
     val_idx = int(len(testValid_files) * 0.5)
 
@@ -104,7 +117,6 @@ def NN_prep(folders_path, folders_names):
     X_valid = [np.array([sample[i] for sample in X_valid_samples]) for i in range(32)]
 
     # Ensure labels match the split of test files
-
     y_test_split = np.array(y_testValid)
     y_test = y_test_split[:val_idx]
     y_valid = y_test_split[val_idx:]
@@ -113,56 +125,211 @@ def NN_prep(folders_path, folders_names):
     y_test = np.array(y_test, dtype=np.float32)
     y_valid = np.array(y_valid, dtype=np.float32)
 
-
     return X_train, X_test, X_valid, y_train, y_test, y_valid
 
-def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
-
-    #verify data shapes
-    print(f"X_train shape: {X_train[0].shape}, y_train shape: {len(y_train)}")
-    print(f"X_valid shape: {X_valid[0].shape}, y_valid shape: {len(y_valid)}")
-    print(f"X_test shape: {X_test[0].shape}, y_test shape: {len(y_test)}")
-
-    print ("")
-    print("Class distribution in y_test:", np.unique(y_test, return_counts=True))
-    print("Class distribution in y_valid:", np.unique(y_valid, return_counts=True))
-
-    #save data to file so that it can be retested at a later time
-    np.savez(os.path.join(saveFolder, "test_data.npz"), 
-            X_test=X_test,
-            y_test=y_test)
+# Modified NN function that accepts a trial for optimization
+def objective(trial, X_train, X_valid, y_train, y_valid):
+    """Optuna objective function for optimizing the CNN model."""
+    # Clear TF session to prevent memory issues between trials
+    tf.keras.backend.clear_session()
     
-    # Create and compile model
-    model = spectrogram_CNN()
-    model.compile(optimizer=SGD(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
-
-    #implementing early stopping
+    # Create a trial-specific folder
+    trial_folder = os.path.join(saveFolder, f"trial_{trial.number}")
+    os.makedirs(trial_folder, exist_ok=True)
+    
+    # Hyperparameters to optimize
+    # Learning rate
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)
+    
+    # Optimizer selection
+    optimizer_name = trial.suggest_categorical('optimizer', ['SGD', 'Adam'])
+    if optimizer_name == 'SGD':
+        # SGD specific parameters
+        momentum = trial.suggest_float('momentum', 0.0, 0.9)
+        optimizer = SGD(learning_rate=learning_rate, momentum=momentum)
+    else:
+        # Adam specific parameters
+        beta_1 = trial.suggest_float('beta_1', 0.8, 0.999)
+        beta_2 = trial.suggest_float('beta_2', 0.8, 0.999)
+        optimizer = Adam(learning_rate=learning_rate, beta_1=beta_1, beta_2=beta_2)
+    
+    # Batch size
+    batch_size = trial.suggest_categorical('batch_size', [4, 8, 16, 32])
+    
+    # Create model checkpoint callback for this trial
+    checkpoint_callback = ModelCheckpoint(
+        os.path.join(trial_folder, "model_best.keras"),
+        monitor="val_accuracy",
+        save_best_only=True,
+        verbose=0
+    )
+    
+    # Early stopping callback
     early_stopping = EarlyStopping(
-        monitor="val_accuracy",  # Monitor validation accuracy
-        patience=10,             # Stop if val_accuracy does not improve for 10 epochs
-        restore_best_weights=False,  # can experiemnt with this
-        mode="max",              # Since higher accuracy is better
+        monitor="val_accuracy",
+        patience=7,  # Reduced patience for faster trials
+        restore_best_weights=True,
+        mode="max",
         verbose=1
     )
-
-    # Train model
-    model.fit(
+    
+    # Optuna pruning callback to stop unpromising trials early
+    pruning_callback = TFKerasPruningCallback(trial, 'val_accuracy')
+    
+    # Create and compile model
+    model = spectrogram_CNN(trial)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    
+    # Train model with reduced epochs for faster trials
+    history = model.fit(
         X_train, y_train,
-        batch_size=8,
-        epochs=40,
+        batch_size=batch_size,
+        epochs=20,  # Reduced for optimization, increase for final model
+        verbose=0,  # Reduced verbosity for cleaner output
+        shuffle=True,
+        callbacks=[checkpoint_callback, early_stopping, pruning_callback],
+        validation_data=(X_valid, y_valid)
+    )
+    
+    # Plot training history
+    plt.figure(figsize=(12, 5))
+    
+    # Plot training & validation accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.title(f'Model Accuracy - Trial {trial.number}')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    
+    # Plot training & validation loss
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title(f'Model Loss - Trial {trial.number}')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(trial_folder, 'training_history.png'))
+    plt.close()
+    
+    # Get best validation accuracy
+    val_accuracy = max(history.history['val_accuracy'])
+    
+    # Log the results
+    params = {
+        'filters': trial.params['filters'],
+        'kernel_size': (trial.params['kernel_size_h'], trial.params['kernel_size_w']),
+        'pool_size': trial.params['pool_size'],
+        'dense_units': trial.params['dense_units'],
+        'dropout_rate': trial.params['dropout_rate'],
+        'learning_rate': trial.params['learning_rate'],
+        'optimizer': optimizer_name,
+        'batch_size': trial.params['batch_size']
+    }
+    
+    # Add optimizer-specific parameters
+    if optimizer_name == 'SGD':
+        params['momentum'] = trial.params['momentum']
+    else:  # Adam
+        params['beta_1'] = trial.params['beta_1']
+        params['beta_2'] = trial.params['beta_2']
+    
+    log_optuna_trial(trial.number, params, val_accuracy)
+    
+    return val_accuracy
+
+# Train the final model with best parameters
+def train_final_model(study, X_train, X_test, X_valid, y_train, y_test, y_valid):
+    """Train the final model using the best parameters found by Optuna."""
+    # Create a folder for the final model
+    final_model_folder = os.path.join(saveFolder, "final_model")
+    os.makedirs(final_model_folder, exist_ok=True)
+    
+    # Get best parameters
+    best_params = study.best_params
+    
+    # Clear session
+    tf.keras.backend.clear_session()
+    
+    # Create model with best parameters
+    trial = optuna.trial.FixedTrial(best_params)
+    model = spectrogram_CNN(trial)
+    
+    # Setup optimizer
+    if best_params['optimizer'] == 'SGD':
+        optimizer = SGD(learning_rate=best_params['learning_rate'], 
+                        momentum=best_params['momentum'])
+    else:
+        optimizer = Adam(learning_rate=best_params['learning_rate'],
+                         beta_1=best_params['beta_1'],
+                         beta_2=best_params['beta_2'])
+    
+    # Compile model
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    
+    # Setup callbacks
+    saveModelCallback = ModelCheckpoint(
+        os.path.join(final_model_folder, "model_epoch{epoch:02d}_valloss{val_loss:.4f}.keras"),
+        monitor="val_accuracy",
+        save_best_only=True,
+        verbose=1
+    )
+    
+    early_stopping = EarlyStopping(
+        monitor="val_accuracy",
+        patience=10,
+        restore_best_weights=True,
+        mode="max",
+        verbose=1
+    )
+    
+    # Train model with more epochs
+    history = model.fit(
+        X_train, y_train,
+        batch_size=best_params['batch_size'],
+        epochs=40,  # More epochs for final training
         verbose=1,
         shuffle=True,
         callbacks=[saveModelCallback, early_stopping],
         validation_data=(X_valid, y_valid)
     )
-    # Evaluate model
+    
+    # Plot final training history
+    plt.figure(figsize=(12, 5))
+    
+    # Plot training & validation accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.title('Final Model Accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    
+    # Plot training & validation loss
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Final Model Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(final_model_folder, 'final_training_history.png'))
+    
+    # Evaluate on test set
     test_loss, test_acc = model.evaluate(X_test, y_test)
     print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}")
-    with open(os.path.join(saveFolder, "results.txt"), "w") as f:
+    
+    # Save test results
+    with open(os.path.join(final_model_folder, "results.txt"), "w") as f:
         f.write(f"Test loss: {test_loss}\n")
-        f.write(f"Test Accuracy: {test_acc}\n")
-
-    return model
+        f.write(f"Test Accuracy: {test_acc}\n)")
 
 # Paths
 folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
@@ -171,9 +338,7 @@ folders_names = ["content", "function"]
 # Prepare dataset
 X_train, X_test, X_valid, y_train, y_test, y_valid = NN_prep(folders_path, folders_names)
 
-# Train and evaluate CNN
-model = NN(X_train, X_test, X_valid, y_train, y_test, y_valid)
+study = optuna.create_study(direction="minimize")  # or "maximize"
+study.optimize(lambda trial: objective(trial, X_train, X_valid, y_train, y_valid), n_trials=100)
 
 print ("ended without crashing")
-
-#get it to show the image after it has been resized to see whats up

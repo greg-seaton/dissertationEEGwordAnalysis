@@ -49,6 +49,23 @@ def spectrogram_CNN():
     model = Model(inputs=inputs, outputs=output)
     return model
 
+def improved_CNN():
+    # Single input with all 32 channels
+    input_layer = Input(shape=(56, 107, 32))
+    
+    # Apply convolutions across all channels
+    x = Conv2D(filters=40, kernel_size=(7, 5), activation='relu', padding='same')(input_layer)
+    x = MaxPool2D(pool_size=(3, 3))(x)
+    x = Flatten()(x)
+    
+    # Continue with dense layers
+    x = Dense(192, activation='relu')(x)
+    x = Dropout(0.2628)(x)
+    output = Dense(1, activation='sigmoid')(x)
+    
+    model = Model(inputs=input_layer, outputs=output)
+    return model
+
 #extrats raw data from an EEG instance folder
 def load_sample(folder_path):
     files = sorted(os.listdir(folder_path))[:32]  
@@ -59,6 +76,19 @@ def load_sample(folder_path):
         image = Image.open(file_path).convert("L").resize((107, 56))
         sample_data[i, :, :, 0] = np.array(image, dtype=np.float32) / 255.0  # Normalize
 
+    return sample_data
+
+def load_sample_improved(folder_path):
+    files = sorted(os.listdir(folder_path))[:32]
+    # Create a single array with shape (56, 107, 32)
+    sample_data = np.zeros((56, 107, 32), dtype=np.float32)
+    
+    for i, file in enumerate(files):
+        file_path = os.path.join(folder_path, file)
+        image = Image.open(file_path).convert("L").resize((107, 56))
+        # Put each channel as a depth dilmension
+        sample_data[:, :, i] = np.array(image, dtype=np.float32) / 255.0
+    
     return sample_data
 
 #goes from folders to raw data to train,test and validate
@@ -90,18 +120,31 @@ def NN_prep(folders_path, folders_names):
             print(f"Folder not found: {full_path}")
 
     testValid_files, y_testValid = shuffle(testValid_files, y_testValid)
+    train_files, y_train = shuffle(train_files, y_train)
+
 
 
     val_idx = int(len(testValid_files) * 0.5)
 
-    X_train_samples = [load_sample(file) for file in train_files] 
-    X_test_samples = [load_sample(testValid_files[i]) for i in range(0, val_idx)]
-    X_valid_samples = [load_sample(testValid_files[i]) for i in range(val_idx, len(testValid_files))]
+    # X_train_samples = [load_sample(file) for file in train_files] 
+    # X_test_samples = [load_sample(testValid_files[i]) for i in range(0, val_idx)]
+    # X_valid_samples = [load_sample(testValid_files[i]) for i in range(val_idx, len(testValid_files))]
+
+    # Instead of loading 32 separate arrays
+    X_train_samples = [load_sample_improved(file) for file in train_files]
+    X_test_samples = [load_sample_improved(file) for file in testValid_files[:val_idx]]
+    X_valid_samples = [load_sample_improved(file) for file in testValid_files[val_idx:]]
+
+    # Now X_train_samples is a list of arrays, each with shape (56, 107, 32)
+    X_train = np.array(X_train_samples)
+    X_test = np.array(X_test_samples)
+    X_valid = np.array(X_valid_samples)
+
 
     # Convert to list of 32 arrays, each with shape (n_samples, 56, 107, 1)
-    X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
-    X_test = [np.array([sample[i] for sample in X_test_samples]) for i in range(32)]
-    X_valid = [np.array([sample[i] for sample in X_valid_samples]) for i in range(32)]
+    # X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
+    # X_test = [np.array([sample[i] for sample in X_test_samples]) for i in range(32)]
+    # X_valid = [np.array([sample[i] for sample in X_valid_samples]) for i in range(32)]
 
     # Ensure labels match the split of test files
 
@@ -133,8 +176,13 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
             y_test=y_test)
     
     # Create and compile model
-    model = spectrogram_CNN()
-    model.compile(optimizer=SGD(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+    # model = spectrogram_CNN()
+    # model.compile(optimizer=SGD(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+
+    model = improved_CNN()
+    model.compile(optimizer=SGD(learning_rate=0.001), 
+                  loss='binary_crossentropy', 
+                  metrics=['accuracy'])
 
     #implementing early stopping
     early_stopping = EarlyStopping(
