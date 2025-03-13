@@ -14,29 +14,27 @@ import optuna
 from optuna.integration import TFKerasPruningCallback
 import matplotlib.pyplot as plt
 
+#memory management dont know if it does anything, but worth a try
 import gc
 gc.collect()
 tf.keras.backend.clear_session()
 
-# Setup folders
+#setting up model save folder. (x and y test data, a number of models, best test performance)
 current_directory = os.path.dirname(os.path.abspath(__file__))
 saveFolderName = datetime.now().strftime("%Y-%m-%d_%H-%M")
 saveFolder = os.path.join(current_directory, "savedCFmodels")
 saveFolder = os.path.join(saveFolder, saveFolderName)
-
 os.makedirs(saveFolder, exist_ok=True)
 
-# Log file for Optuna study
+#optuna file logging
 optuna_log_file = os.path.join(saveFolder, "optuna_log.txt")
-
-# Function to log Optuna results
 def log_optuna_trial(trial_number, params, accuracy):
     with open(optuna_log_file, "a") as f:
         f.write(f"Trial {trial_number}:\n")
         f.write(f"  Parameters: {params}\n")
         f.write(f"  Accuracy: {accuracy}\n\n")
 
-# Modified CNN structure that accepts hyperparameters
+#CNN structure with changing hyperparameters
 def spectrogram_CNN(trial):
     """Creates a CNN model with parameters from Optuna trial."""
     # Hyperparameters to optimize
@@ -63,7 +61,7 @@ def spectrogram_CNN(trial):
     model = Model(inputs=inputs, outputs=output)
     return model
 
-# Extract raw data from an EEG instance folder (unchanged)
+# Extract raw data from an EEG instance folder
 def load_sample(folder_path):
     files = sorted(os.listdir(folder_path))[:32]  
     sample_data = np.zeros((32, 56, 107, 1), dtype=np.float32)  
@@ -157,12 +155,12 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
     batch_size = trial.suggest_categorical('batch_size', [4, 8, 16, 32])
     
     # Create model checkpoint callback for this trial
-    checkpoint_callback = ModelCheckpoint(
-        os.path.join(trial_folder, "model_best.keras"),
-        monitor="val_accuracy",
-        save_best_only=True,
-        verbose=0
-    )
+    # checkpoint_callback = ModelCheckpoint(
+    #     os.path.join(trial_folder, "model_best.keras"),
+    #     monitor="val_accuracy",
+    #     save_best_only=True,
+    #     verbose=0
+    # )
     
     # Early stopping callback
     early_stopping = EarlyStopping(
@@ -187,7 +185,8 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
         epochs=20,  # Reduced for optimization, increase for final model
         verbose=0,  # Reduced verbosity for cleaner output
         shuffle=True,
-        callbacks=[checkpoint_callback, early_stopping, pruning_callback],
+        # callbacks=[checkpoint_callback, early_stopping, pruning_callback],
+        callbacks=[early_stopping, pruning_callback],
         validation_data=(X_valid, y_valid)
     )
     
