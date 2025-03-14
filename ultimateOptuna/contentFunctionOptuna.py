@@ -12,8 +12,8 @@ from datetime import datetime
 from sklearn.utils import shuffle
 import optuna
 from optuna.integration import TFKerasPruningCallback
-import matplotlib
-import matplotlib as plt
+# import matplotlib
+# import matplotlib as plt
 
 
 #memory management dont know if it does anything, but worth a try
