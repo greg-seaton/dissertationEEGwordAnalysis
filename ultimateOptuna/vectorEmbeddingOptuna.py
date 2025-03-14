@@ -83,7 +83,6 @@ def NN_prep(folders_path, folders_names):
                     print("Participant:", participant)
                     participant_words = os.listdir(participant_path)
                     random.shuffle(participant_words)
-                    # participant_words = participant_words[:800] #####?
                     split_idx = int(len(participant_words) * 0.7)
                     train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]])
                     test_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]])
@@ -209,7 +208,7 @@ def NN(train_files, test_files, y_train, y_test, trial=None):
     # Original early stopping callback
     early_stopping = EarlyStopping(
         monitor="val_loss",
-        patience=10,
+        patience=15,
         restore_best_weights=True,
         verbose=1
     )
@@ -270,7 +269,7 @@ def objective(trial):
     os.makedirs(trial_dir, exist_ok=True)
     
     # Get the file paths
-    folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
+    folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
     folders_names = ["content", "function"]
     
     # Prepare dataset

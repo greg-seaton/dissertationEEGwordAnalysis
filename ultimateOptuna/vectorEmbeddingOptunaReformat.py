@@ -8,14 +8,14 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, Flatten, Dense, Dropout, Concatenate, BatchNormalization
 from tensorflow.keras.optimizers import SGD, Adam
 import tensorflow.keras.backend as K
-from tensorflow.keras.losses import Loss
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-import matplotlib.pyplot as plt
-import re
-import torch
-import torch.nn.functional as F
 from datetime import datetime
-import optuna  # Added for hyperparameter optimization
+from sklearn.utils import shuffle
+import optuna
+from optuna.integration import TFKerasPruningCallback
+import matplotlib.pyplot as plt
+plt.use('TkAgg')
+import re
 
 # Original memory management
 import gc
@@ -386,10 +386,8 @@ def train_final_model(study, X_train, X_test, X_valid, y_train, y_test, y_valid)
         f.write(f"Test loss: {test_loss}\n")
         f.write(f"Test Accuracy: {test_acc}\n)")
 
-
-
 # Paths
-folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
+folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
 folders_names = ["content", "function"]
 
 # Prepare dataset

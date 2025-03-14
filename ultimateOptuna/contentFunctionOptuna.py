@@ -12,7 +12,10 @@ from datetime import datetime
 from sklearn.utils import shuffle
 import optuna
 from optuna.integration import TFKerasPruningCallback
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib as plt
+
 
 #memory management dont know if it does anything, but worth a try
 import gc
@@ -331,13 +334,13 @@ def train_final_model(study, X_train, X_test, X_valid, y_train, y_test, y_valid)
         f.write(f"Test Accuracy: {test_acc}\n)")
 
 # Paths
-folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
+folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
 folders_names = ["content", "function"]
 
 # Prepare dataset
 X_train, X_test, X_valid, y_train, y_test, y_valid = NN_prep(folders_path, folders_names)
 
-study = optuna.create_study(direction="minimize")  # or "maximize"
-study.optimize(lambda trial: objective(trial, X_train, X_valid, y_train, y_valid), n_trials=100)
+study = optuna.create_study(direction="maximize")
+study.optimize(lambda trial: objective(trial, X_train, X_valid, y_train, y_valid), n_trials=10)
 
 print ("ended without crashing")
