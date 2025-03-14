@@ -13,7 +13,6 @@ from sklearn.utils import shuffle
 import optuna
 from optuna.integration import TFKerasPruningCallback
 import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib as plt
 
 
@@ -193,30 +192,30 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
         validation_data=(X_valid, y_valid)
     )
     
-    # Plot training history
-    plt.figure(figsize=(12, 5))
+    # # Plot training history
+    # plt.figure(figsize=(12, 5))
     
-    # Plot training & validation accuracy
-    plt.subplot(1, 2, 1)
-    plt.plot(history.history['accuracy'])
-    plt.plot(history.history['val_accuracy'])
-    plt.title(f'Model Accuracy - Trial {trial.number}')
-    plt.ylabel('Accuracy')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Validation'], loc='upper left')
+    # # Plot training & validation accuracy
+    # plt.subplot(1, 2, 1)
+    # plt.plot(history.history['accuracy'])
+    # plt.plot(history.history['val_accuracy'])
+    # plt.title(f'Model Accuracy - Trial {trial.number}')
+    # plt.ylabel('Accuracy')
+    # plt.xlabel('Epoch')
+    # plt.legend(['Train', 'Validation'], loc='upper left')
     
-    # Plot training & validation loss
-    plt.subplot(1, 2, 2)
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title(f'Model Loss - Trial {trial.number}')
-    plt.ylabel('Loss')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Validation'], loc='upper left')
+    # # Plot training & validation loss
+    # plt.subplot(1, 2, 2)
+    # plt.plot(history.history['loss'])
+    # plt.plot(history.history['val_loss'])
+    # plt.title(f'Model Loss - Trial {trial.number}')
+    # plt.ylabel('Loss')
+    # plt.xlabel('Epoch')
+    # plt.legend(['Train', 'Validation'], loc='upper left')
     
-    plt.tight_layout()
-    plt.savefig(os.path.join(trial_folder, 'training_history.png'))
-    plt.close()
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(trial_folder, 'training_history.png'))
+    # plt.close()
     
     # Get best validation accuracy
     val_accuracy = max(history.history['val_accuracy'])
@@ -301,28 +300,28 @@ def train_final_model(study, X_train, X_test, X_valid, y_train, y_test, y_valid)
     )
     
     # Plot final training history
-    plt.figure(figsize=(12, 5))
+    # plt.figure(figsize=(12, 5))
     
-    # Plot training & validation accuracy
-    plt.subplot(1, 2, 1)
-    plt.plot(history.history['accuracy'])
-    plt.plot(history.history['val_accuracy'])
-    plt.title('Final Model Accuracy')
-    plt.ylabel('Accuracy')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Validation'], loc='upper left')
+    # # Plot training & validation accuracy
+    # plt.subplot(1, 2, 1)
+    # plt.plot(history.history['accuracy'])
+    # plt.plot(history.history['val_accuracy'])
+    # plt.title('Final Model Accuracy')
+    # plt.ylabel('Accuracy')
+    # plt.xlabel('Epoch')
+    # plt.legend(['Train', 'Validation'], loc='upper left')
     
-    # Plot training & validation loss
-    plt.subplot(1, 2, 2)
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('Final Model Loss')
-    plt.ylabel('Loss')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Validation'], loc='upper left')
+    # # Plot training & validation loss
+    # plt.subplot(1, 2, 2)
+    # plt.plot(history.history['loss'])
+    # plt.plot(history.history['val_loss'])
+    # plt.title('Final Model Loss')
+    # plt.ylabel('Loss')
+    # plt.xlabel('Epoch')
+    # plt.legend(['Train', 'Validation'], loc='upper left')
     
-    plt.tight_layout()
-    plt.savefig(os.path.join(final_model_folder, 'final_training_history.png'))
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(final_model_folder, 'final_training_history.png'))
     
     # Evaluate on test set
     test_loss, test_acc = model.evaluate(X_test, y_test)
