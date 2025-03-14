@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#SBATCH --job-name=EEG_CF_Test
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=01:00:0
+#SBATCH --output=model.out
+#SBATCH --account=COMS035104
+#SBATCH --partition=test
+
+# Run the executable
+
+python contentFunctionOptuna.py
