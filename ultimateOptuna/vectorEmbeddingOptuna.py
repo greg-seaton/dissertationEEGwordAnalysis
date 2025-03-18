@@ -156,7 +156,7 @@ def NN_prep(folders_path, folders_names):
                     train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]]) #first 70%
                     testValid_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]]) #last 30%
                     y_train.extend(getVector(word) for word in participant_words[:split_idx])
-                    y_test.extend(getVector(word) for word in participant_words[split_idx:])
+                    y_testValid.extend(getVector(word) for word in participant_words[split_idx:])
         else:
             print(f"Folder not found: {full_path}")
 
