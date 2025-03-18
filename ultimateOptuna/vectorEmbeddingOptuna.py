@@ -20,9 +20,19 @@ import gc
 gc.collect()
 tf.keras.backend.clear_session()
 
-# Load the nlp model
-import gensim.downloader as api
-NLPmodel = api.load("glove-wiki-gigaword-100")  # 100D, ~91MB
+#load NLP model, not using gensim
+def load_glove_model(file_path):
+    word_vectors = {}
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            values = line.split()
+            word = values[0]  # First token is the word
+            vector = np.array(values[1:], dtype=np.float32)  # Rest are vector values
+            word_vectors[word] = vector
+    return word_vectors
+
+# Load the model from your current directory
+glove_model = load_glove_model("glove-wiki-gigaword-100.gz")
 
 # Setup folders
 current_directory = os.path.dirname(os.path.abspath(__file__))
