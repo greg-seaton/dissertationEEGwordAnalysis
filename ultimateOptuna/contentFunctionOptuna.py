@@ -270,7 +270,8 @@ def train_final_model(study, X_train, X_test, X_valid, y_train, y_test, y_valid)
         callbacks=[saveModelCallback, early_stopping],
         validation_data=(X_valid, y_valid)
     )
-        
+    
+    
     # Evaluate on test set
     test_loss, test_acc = model.evaluate(X_test, y_test)
     print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}")

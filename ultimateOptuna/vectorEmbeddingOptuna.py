@@ -32,7 +32,7 @@ def load_glove_model(file_path):
     return word_vectors
 
 # Load the model from your current directory
-NLPmodel = load_glove_model("../glove-wiki-gigaword-100.gz")
+NLPmodel = load_glove_model("../glove-wiki-gigaword-100")
 
 # Setup folders
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -73,18 +73,33 @@ def cosine_similarity(y_true, y_pred):
     return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))
 
 # Modified CNN model creation function to accept hyperparameters from Optuna
+# Modified CNN model creation function to accept hyperparameters from Optuna
 def spectrogram_CNN(trial=None):
     # Default hyperparameters (will be used if trial is None)
-
-    # Log the results
     filters1 = trial.suggest_categorical('filters1', [16, 32, 64])
     filters2 = trial.suggest_categorical('filters2', [32, 64, 128])
-    kernel_size1 = trial.suggest_categorical('kernel_size1', [(3, 3), (5, 5), (7, 7)])
-    kernel_size2 = trial.suggest_categorical('kernel_size2', [(3, 3), (5, 5)])
-    pool_size1 = trial.suggest_categorical('pool_size1', [(2, 2), (3, 3)])
-    pool_size2 = trial.suggest_categorical('pool_size2', [(2, 2), (3, 3)])
+    
+    # Separate dimensions for kernel sizes
+    kernel_size1_h = trial.suggest_categorical('kernel_size1_h', [3, 5, 7])
+    kernel_size1_w = trial.suggest_categorical('kernel_size1_w', [3, 5, 7])
+    kernel_size1 = (kernel_size1_h, kernel_size1_w)
+    
+    kernel_size2_h = trial.suggest_categorical('kernel_size2_h', [3, 5])
+    kernel_size2_w = trial.suggest_categorical('kernel_size2_w', [3, 5])
+    kernel_size2 = (kernel_size2_h, kernel_size2_w)
+    
+    # Separate dimensions for pool sizes
+    pool_size1_h = trial.suggest_categorical('pool_size1_h', [2, 3])
+    pool_size1_w = trial.suggest_categorical('pool_size1_w', [2, 3])
+    pool_size1 = (pool_size1_h, pool_size1_w)
+    
+    pool_size2_h = trial.suggest_categorical('pool_size2_h', [2, 3])
+    pool_size2_w = trial.suggest_categorical('pool_size2_w', [2, 3])
+    pool_size2 = (pool_size2_h, pool_size2_w)
+    
     dense_units = trial.suggest_categorical('dense_units', [128, 256, 512])
     dropout_rate = trial.suggest_float('dropout_rate', 0.2, 0.5)
+    learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
     
     # Original model architecture with tunable hyperparameters
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
@@ -245,8 +260,10 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
     params = {
         'filters1': trial.params['filters1'],
         'filters2': trial.params['filters2'],
-        'kernel_size': (trial.params['kernel_size_1'], trial.params['kernel_size_2']),
-        'pool_size': trial.params['pool_size'],
+        'kernel_size1': (trial.params['kernel_size1_h'], trial.params['kernel_size1_w']),
+        'kernel_size2': (trial.params['kernel_size2_h'], trial.params['kernel_size2_w']),
+        'pool_size1': (trial.params['pool_size1_h'], trial.params['pool_size1_w']),
+        'pool_size2': (trial.params['pool_size2_h'], trial.params['pool_size2_w']),
         'dense_units': trial.params['dense_units'],
         'dropout_rate': trial.params['dropout_rate'],
         'learning_rate': trial.params['learning_rate'],
