@@ -32,7 +32,7 @@ def load_glove_model(file_path):
     return word_vectors
 
 # Load the model from your current directory
-NLPmodel = load_glove_model("glove-wiki-gigaword-100.gz")
+NLPmodel = load_glove_model("../glove-wiki-gigaword-100.gz")
 
 # Setup folders
 current_directory = os.path.dirname(os.path.abspath(__file__))
