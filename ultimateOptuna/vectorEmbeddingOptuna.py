@@ -8,14 +8,12 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, Flatten, Dense, Dropout, Concatenate, BatchNormalization
 from tensorflow.keras.optimizers import SGD, Adam
 import tensorflow.keras.backend as K
-from tensorflow.keras.losses import Loss
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-import matplotlib.pyplot as plt
-import re
-import torch
-import torch.nn.functional as F
 from datetime import datetime
-import optuna  # Added for hyperparameter optimization
+from sklearn.utils import shuffle
+import optuna
+from optuna.integration import TFKerasPruningCallback
+import re
 
 # Original memory management
 import gc
@@ -33,13 +31,13 @@ saveFolder = os.path.join(current_directory, "savedNLPmodels")
 saveFolder = os.path.join(saveFolder, saveFolderName)
 os.makedirs(saveFolder, exist_ok=True)
 
-# Original callback for saving model weights
-saveModelCallback = ModelCheckpoint(
-    os.path.join(saveFolder, "model_epoch{epoch:02d}_valloss{val_loss:.4f}.keras"),  
-    monitor="val_loss",
-    save_best_only=True,
-    verbose=1
-)
+# Log file for Optuna study
+optuna_log_file = os.path.join(saveFolder, "optuna_log.txt")
+def log_optuna_trial(trial_number, params, accuracy):
+    with open(optuna_log_file, "a") as f:
+        f.write(f"Trial {trial_number}:\n")
+        f.write(f"  Parameters: {params}\n")
+        f.write(f"  Accuracy: {accuracy}\n\n")
 
 # Original function for getting word vectors
 def getVector(word):
@@ -64,79 +62,24 @@ def cosine_similarity_loss(y_true, y_pred):
 def cosine_similarity(y_true, y_pred):
     return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))
 
-# Original data preparation function
-def NN_prep(folders_path, folders_names):
-    label_map = {"content": 0, "function": 1}
-    train_files = []
-    test_files = []
-    y_train = []
-    y_test = []
-
-    for folder in folders_names:
-        full_path = os.path.join(folders_path, folder)
-        if os.path.exists(full_path):
-            print(f"\nContents of {folder}:")
-            participants = os.listdir(full_path)
-            for participant in participants:
-                participant_path = os.path.join(full_path, participant)
-                if os.path.isdir(participant_path):
-                    print("Participant:", participant)
-                    participant_words = os.listdir(participant_path)
-                    random.shuffle(participant_words)
-                    split_idx = int(len(participant_words) * 0.7)
-                    train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]])
-                    test_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]])
-                    y_train.extend(getVector(word) for word in participant_words[:split_idx])
-                    y_test.extend(getVector(word) for word in participant_words[split_idx:])
-        else:
-            print(f"Folder not found: {full_path}")
-
-    y_train = np.array(y_train, dtype=np.float32)
-    y_test = np.array(y_test, dtype=np.float32)
-    return train_files, test_files, y_train, y_test
-
-# Original sample loading function
-def load_sample(folder_path):
-    files = sorted(os.listdir(folder_path))[:32]  
-    sample_data = np.zeros((32, 56, 107, 1), dtype=np.float32)  
-
-    for i, file in enumerate(files):
-        file_path = os.path.join(folder_path, file)
-        image = Image.open(file_path).convert("L").resize((107, 56))
-        sample_data[i, :, :, 0] = np.array(image, dtype=np.float32) / 255.0  # Normalize
-
-    return sample_data
-
 # Modified CNN model creation function to accept hyperparameters from Optuna
 def spectrogram_CNN(trial=None):
     # Default hyperparameters (will be used if trial is None)
-    filters1 = 32
-    filters2 = 64
-    kernel_size1 = (5, 5)
-    kernel_size2 = (3, 3)
-    pool_size1 = (3, 3)
-    pool_size2 = (2, 2)
-    dense_units = 256
-    dropout_rate = 0.3
-    learning_rate = 0.00064
-    
-    # If Optuna trial is provided, use it to suggest hyperparameters
-    if trial:
-        # Suggest hyperparameters using Optuna
-        filters1 = trial.suggest_categorical('filters1', [16, 32, 64])
-        filters2 = trial.suggest_categorical('filters2', [32, 64, 128])
-        kernel_size1 = trial.suggest_categorical('kernel_size1', [(3, 3), (5, 5), (7, 7)])
-        kernel_size2 = trial.suggest_categorical('kernel_size2', [(3, 3), (5, 5)])
-        pool_size1 = trial.suggest_categorical('pool_size1', [(2, 2), (3, 3)])
-        pool_size2 = trial.suggest_categorical('pool_size2', [(2, 2), (3, 3)])
-        dense_units = trial.suggest_categorical('dense_units', [128, 256, 512])
-        dropout_rate = trial.suggest_float('dropout_rate', 0.2, 0.5)
-        learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
+
+    # Log the results
+    filters1 = trial.suggest_categorical('filters1', [16, 32, 64])
+    filters2 = trial.suggest_categorical('filters2', [32, 64, 128])
+    kernel_size1 = trial.suggest_categorical('kernel_size1', [(3, 3), (5, 5), (7, 7)])
+    kernel_size2 = trial.suggest_categorical('kernel_size2', [(3, 3), (5, 5)])
+    pool_size1 = trial.suggest_categorical('pool_size1', [(2, 2), (3, 3)])
+    pool_size2 = trial.suggest_categorical('pool_size2', [(2, 2), (3, 3)])
+    dense_units = trial.suggest_categorical('dense_units', [128, 256, 512])
+    dropout_rate = trial.suggest_float('dropout_rate', 0.2, 0.5)
     
     # Original model architecture with tunable hyperparameters
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
     cnn_outputs = []
-    for input_layer in inputs:
+    for input_layer in inputs: #input layer (loop to get 32)
         x = Conv2D(filters=filters1, kernel_size=kernel_size1, activation='relu', padding='same')(input_layer)
         x = BatchNormalization()(x)
         x = MaxPool2D(pool_size=pool_size1)(x)
@@ -149,38 +92,57 @@ def spectrogram_CNN(trial=None):
     x = Dense(dense_units, activation='relu')(combined)
     x = BatchNormalization()(x)
     x = Dropout(dropout_rate)(x)
-    output = Dense(100, activation='linear')(x)
+    output = Dense(100, activation='linear')(x)    #is linear definitely the best one?
     model = Model(inputs=inputs, outputs=output)
-    
-    # Compile model with tunable learning rate
-    model.compile(optimizer=Adam(learning_rate=learning_rate), 
-                  loss=cosine_similarity_loss, 
-                  metrics=['accuracy', cosine_similarity])
-    
     return model
 
-# Modified NN function to accept hyperparameters from Optuna
-def NN(train_files, test_files, y_train, y_test, trial=None):
-    # Default hyperparameters (will be used if trial is None)
-    batch_size = 8
-    epochs = 40  # Changed from 2 to 40 for actual training
-    
-    # If Optuna trial is provided, use it to suggest hyperparameters
-    if trial:
-        # Suggest hyperparameters using Optuna
-        batch_size = trial.suggest_categorical('batch_size', [4, 8, 16, 32])
-        epochs = trial.suggest_int('epochs', 20, 100)
-    
-    # Original data preparation
-    val_idx = int(len(test_files) * 0.5)
-    
-    # Load samples
-    print("Loading training samples...")
-    X_train_samples = [load_sample(file) for file in train_files]
-    print("Loading test samples...")
-    X_test_samples = [load_sample(test_files[i]) for i in range(0, val_idx)]
-    print("Loading validation samples...")
-    X_valid_samples = [load_sample(test_files[i]) for i in range(val_idx, len(test_files))]
+def load_sample(folder_path):
+    files = sorted(os.listdir(folder_path))[:32]  
+    sample_data = np.zeros((32, 56, 107, 1), dtype=np.float32)  
+
+    for i, file in enumerate(files):
+        file_path = os.path.join(folder_path, file)
+        image = Image.open(file_path).convert("L").resize((107, 56))
+        sample_data[i, :, :, 0] = np.array(image, dtype=np.float32) / 255.0  # Normalize
+
+    return sample_data
+
+# Original data preparation function
+# Goes from folders to raw data to train, test and validate (unchanged)
+def NN_prep(folders_path, folders_names):
+    label_map = {"content": 0, "function": 1}
+    train_files = []
+    testValid_files = []
+    y_train = []
+    y_testValid = []
+
+    for folder in folders_names:
+        full_path = os.path.join(folders_path, folder)
+        if os.path.exists(full_path):
+            print(f"\nContents of {folder}:")
+            participants = os.listdir(full_path)
+            for participant in participants:
+                participant_path = os.path.join(full_path, participant)
+                if os.path.isdir(participant_path):
+                    print("Participant:", participant)
+                    participant_words = os.listdir(participant_path) #all the word folder locations
+                    random.shuffle(participant_words)
+                    split_idx = int(len(participant_words) * 0.7)
+                    train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]]) #first 70%
+                    testValid_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]]) #last 30%
+                    label = label_map[folder]
+                    y_train.extend([label] * split_idx)
+                    y_testValid.extend([label] * (len(participant_words) - split_idx))
+        else:
+            print(f"Folder not found: {full_path}")
+
+    testValid_files, y_testValid = shuffle(testValid_files, y_testValid)
+
+    val_idx = int(len(testValid_files) * 0.5)
+
+    X_train_samples = [load_sample(file) for file in train_files] 
+    X_test_samples = [load_sample(testValid_files[i]) for i in range(0, val_idx)]
+    X_valid_samples = [load_sample(testValid_files[i]) for i in range(val_idx, len(testValid_files))]
 
     # Convert to list of 32 arrays, each with shape (n_samples, 56, 107, 1)
     X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
@@ -188,242 +150,183 @@ def NN(train_files, test_files, y_train, y_test, trial=None):
     X_valid = [np.array([sample[i] for sample in X_valid_samples]) for i in range(32)]
 
     # Ensure labels match the split of test files
-    y_test_split = np.array(y_test)
-    y_test_final = y_test_split[:val_idx]
+    y_test_split = np.array(y_testValid)
+    y_test = y_test_split[:val_idx]
     y_valid = y_test_split[val_idx:]
 
-    # Debugging shape mismatches
-    print(f"X_train shape: {X_train[0].shape}, y_train shape: {len(y_train)}")
-    print(f"X_valid shape: {X_valid[0].shape}, y_valid shape: {len(y_valid)}")
-    print(f"X_test shape: {X_test[0].shape}, y_test shape: {len(y_test_final)}")
+    y_train = np.array(y_train, dtype=np.float32)
+    y_test = np.array(y_test, dtype=np.float32)
+    y_valid = np.array(y_valid, dtype=np.float32)
 
-    # Save test data for later evaluation
-    np.savez(os.path.join(saveFolder, "test_data.npz"), 
-            X_test=X_test,
-            y_test=y_test_final)
+    return X_train, X_test, X_valid, y_train, y_test, y_valid
 
-    # Create model with optuna trial if provided
-    model = spectrogram_CNN(trial)
 
-    # Original early stopping callback
+
+# Modified NN function that accepts a trial for optimization
+def objective(trial, X_train, X_valid, y_train, y_valid):
+    """Optuna objective function for optimizing the CNN model."""
+    # Clear TF session to prevent memory issues between trials
+    tf.keras.backend.clear_session()
+    
+    # Create a trial-specific folder
+    trial_folder = os.path.join(saveFolder, f"trial_{trial.number}")
+    os.makedirs(trial_folder, exist_ok=True)
+    
+    # Hyperparameters to optimize
+    # Learning rate
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)
+    
+    # Optimizer selection
+    optimizer_name = trial.suggest_categorical('optimizer', ['SGD', 'Adam'])
+    if optimizer_name == 'SGD':
+        # SGD specific parameters
+        momentum = trial.suggest_float('momentum', 0.0, 0.9)
+        optimizer = SGD(learning_rate=learning_rate, momentum=momentum)
+    else:
+        # Adam specific parameters
+        beta_1 = trial.suggest_float('beta_1', 0.8, 0.999)
+        beta_2 = trial.suggest_float('beta_2', 0.8, 0.999)
+        optimizer = Adam(learning_rate=learning_rate, beta_1=beta_1, beta_2=beta_2)
+    
+    # Batch size
+    batch_size = trial.suggest_categorical('batch_size', [4, 8, 16, 32])
+    
+    # # Create model checkpoint callback for this trial
+    # checkpoint_callback = ModelCheckpoint(
+    #     os.path.join(trial_folder, "model_best.keras"),
+    #     monitor="val_accuracy",
+    #     save_best_only=True,
+    #     verbose=0
+    # )
+    
+    # Early stopping callback
     early_stopping = EarlyStopping(
-        monitor="val_loss",
-        patience=15,
+        monitor="val_accuracy",
+        patience=7,  # Reduced patience for faster trials
         restore_best_weights=True,
+        mode="max",
         verbose=1
     )
-
-    # Train model
-    print(f"Training model with batch_size={batch_size}, epochs={epochs}")
+    
+    # Optuna pruning callback to stop unpromising trials early
+    pruning_callback = TFKerasPruningCallback(trial, 'val_accuracy')
+    
+    # Create and compile model
+    model = spectrogram_CNN(trial)
+    model.compile(optimizer=Adam(learning_rate=learning_rate), 
+                  loss=cosine_similarity_loss, 
+                  metrics=['accuracy', cosine_similarity])    
+    # Train model with reduced epochs for faster trials
     history = model.fit(
         X_train, y_train,
         batch_size=batch_size,
-        epochs=epochs,
+        epochs=20,  # Reduced for optimization, increase for final model
+        verbose=0,  # Reduced verbosity for cleaner output
+        shuffle=True,
+        # callbacks=[checkpoint_callback, early_stopping, pruning_callback],
+        callbacks=[early_stopping, pruning_callback],
+        validation_data=(X_valid, y_valid)
+    )
+    
+    # Get best validation accuracy
+    val_accuracy = max(history.history['val_accuracy'])
+    
+    # Log the results
+    params = {
+        'filters1': trial.params['filters1'],
+        'filters2': trial.params['filters2'],
+        'kernel_size': (trial.params['kernel_size_1'], trial.params['kernel_size_2']),
+        'pool_size': trial.params['pool_size'],
+        'dense_units': trial.params['dense_units'],
+        'dropout_rate': trial.params['dropout_rate'],
+        'learning_rate': trial.params['learning_rate'],
+        'optimizer': optimizer_name,
+        'batch_size': trial.params['batch_size']
+    }
+
+
+    # Add optimizer-specific parameters
+    if optimizer_name == 'SGD':
+        params['momentum'] = trial.params['momentum']
+    else:  # Adam
+        params['beta_1'] = trial.params['beta_1']
+        params['beta_2'] = trial.params['beta_2']
+    
+    log_optuna_trial(trial.number, params, val_accuracy)
+    
+    return val_accuracy
+
+def train_final_model(study, X_train, X_test, X_valid, y_train, y_test, y_valid):
+    """Train the final model using the best parameters found by Optuna."""
+    # Create a folder for the final model
+    final_model_folder = os.path.join(saveFolder, "final_model")
+    os.makedirs(final_model_folder, exist_ok=True)
+    
+    # Get best parameters
+    best_params = study.best_params
+    
+    # Clear session
+    tf.keras.backend.clear_session()
+    
+    # Create model with best parameters
+    trial = optuna.trial.FixedTrial(best_params)
+    model = spectrogram_CNN(trial)
+    
+    # Setup optimizer
+    if best_params['optimizer'] == 'SGD':
+        optimizer = SGD(learning_rate=best_params['learning_rate'], 
+                        momentum=best_params['momentum'])
+    else:
+        optimizer = Adam(learning_rate=best_params['learning_rate'],
+                         beta_1=best_params['beta_1'],
+                         beta_2=best_params['beta_2'])
+    
+    # Compile model
+    model.compile(optimizer=optimizer, loss=cosine_similarity_loss, metrics=['accuracy', cosine_similarity])
+    # Setup callbacks
+    saveModelCallback = ModelCheckpoint(
+        os.path.join(final_model_folder, "model_epoch{epoch:02d}_valloss{val_loss:.4f}.keras"),
+        monitor="val_accuracy",
+        save_best_only=True,
+        verbose=1
+    )
+    
+    early_stopping = EarlyStopping(
+        monitor="val_accuracy",
+        patience=10,
+        restore_best_weights=True,
+        mode="max",
+        verbose=1
+    )
+    
+    # Train model with more epochs
+    history = model.fit(
+        X_train, y_train,
+        batch_size=best_params['batch_size'],
+        epochs=40,  # More epochs for final training
         verbose=1,
         shuffle=True,
         callbacks=[saveModelCallback, early_stopping],
         validation_data=(X_valid, y_valid)
     )
-
-    # Evaluate model
-    test_loss, test_acc, test_cosine_sim = model.evaluate(X_test, y_test_final)
-    print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}, Test Cosine Similarity: {test_cosine_sim}")
     
-    # Save results
-    with open(os.path.join(saveFolder, "results.txt"), "w") as f:
+    # Evaluate on test set
+    test_loss, test_acc = model.evaluate(X_test, y_test)
+    print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}")
+    
+    # Save test results
+    with open(os.path.join(final_model_folder, "results.txt"), "w") as f:
         f.write(f"Test loss: {test_loss}\n")
-        f.write(f"Test Accuracy: {test_acc}\n")
-        f.write(f"Test Cosine Similarity: {test_cosine_sim}\n")
-        
-        # If using Optuna, also save the parameters
-        if trial:
-            f.write("\nOptuna Parameters:\n")
-            for key, value in trial.params.items():
-                f.write(f"{key}: {value}\n")
+        f.write(f"Test Accuracy: {test_acc}\n)")
 
-    # Generate some predictions for inspection
-    predictions = model.predict(X_test, verbose=0)
-    cosine_similarities = np.sum(predictions * y_test_final, axis=-1) / (
-        np.linalg.norm(predictions, axis=-1) * np.linalg.norm(y_test_final, axis=-1)
-    )
+# Paths
+folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
+folders_names = ["content", "function"]
 
-    print("\nTest Predictions and Cosine Similarities:")
-    for i in range(min(5, len(y_test_final))):  # Show just 5 examples to keep output manageable
-        print(f"Sample {i}:")
-        print(f"  Predicted Vector: {predictions[i][:10]}...")  # Show just first 10 elements
-        print(f"  True Vector: {y_test_final[i][:10]}...")
-        print(f"  Cosine Similarity: {cosine_similarities[i]:.4f}")
-        print("-" * 50)
+# Prepare dataset
+X_train, X_test, X_valid, y_train, y_test, y_valid = NN_prep(folders_path, folders_names)
 
-    # Return both the model and the evaluation metric for Optuna
-    return model, test_cosine_sim
+study = optuna.create_study(direction="maximize")
+study.optimize(lambda trial: objective(trial, X_train, X_valid, y_train, y_valid), n_trials=100)
 
-# Define the objective function for Optuna
-def objective(trial):
-    """
-    Objective function for Optuna to optimize.
-    Takes an Optuna trial and returns the metric to optimize (cosine similarity).
-    """
-    # Create trial directory
-    trial_dir = os.path.join(saveFolder, f"trial_{trial.number}")
-    os.makedirs(trial_dir, exist_ok=True)
-    
-    # Get the file paths
-    folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
-    folders_names = ["content", "function"]
-    
-    # Prepare dataset
-    train_files, test_files, y_train, y_test = NN_prep(folders_path, folders_names)
-    
-    # Pass the trial to NN function for hyperparameter tuning
-    model, cosine_sim = NN(train_files, test_files, y_train, y_test, trial)
-    
-    # Return the metric to optimize (need to negate as Optuna minimizes by default)
-    return -cosine_sim  # Negate because we want to maximize cosine similarity
-
-# Main function to run the optimization
-def run_optimization(n_trials=30):
-    """
-    Run the Optuna optimization process.
-    Args:
-        n_trials: Number of trials to run
-    """
-    # Create a study object and optimize the objective function
-    study = optuna.create_study(direction="minimize")  # We're minimizing -cosine_sim to maximize cosine_sim
-    study.optimize(objective, n_trials=n_trials)
-    
-    # Print the best parameters and value
-    print("Best trial:")
-    trial = study.best_trial
-    print("  Value (Cosine Similarity): ", -trial.value)  # Negate back to get the actual similarity
-    print("  Params: ")
-    for key, value in trial.params.items():
-        print(f"    {key}: {value}")
-    
-    # Save the best parameters
-    with open(os.path.join(saveFolder, "best_params.txt"), "w") as f:
-        f.write(f"Best Trial Value (Cosine Similarity): {-trial.value}\n")
-        f.write("Best Parameters:\n")
-        for key, value in trial.params.items():
-            f.write(f"{key}: {value}\n")
-    
-    # Create parameter importance plot
-    try:
-        # Create visualization of parameter importances if matplotlib is available
-        importance = optuna.importance.get_param_importances(study)
-        plt.figure(figsize=(10, 6))
-        plt.bar(importance.keys(), importance.values())
-        plt.title('Parameter Importance')
-        plt.xlabel('Parameter')
-        plt.ylabel('Importance')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig(os.path.join(saveFolder, "parameter_importance.png"))
-        plt.close()
-    except:
-        print("Could not create parameter importance plot")
-    
-    # Try to create optimization history plot
-    try:
-        # Plot optimization history
-        plt.figure(figsize=(10, 6))
-        plt.plot([t.number for t in study.trials], [-t.value for t in study.trials], marker='o')
-        plt.xlabel('Trial Number')
-        plt.ylabel('Cosine Similarity')
-        plt.title('Optimization History')
-        plt.grid(True)
-        plt.savefig(os.path.join(saveFolder, "optimization_history.png"))
-        plt.close()
-    except:
-        print("Could not create optimization history plot")
-    
-    return trial.params
-
-# Function to train model with best parameters
-def train_with_best_params(best_params):
-    """
-    Train a final model using the best parameters found by Optuna.
-    Args:
-        best_params: Dictionary of best parameters from Optuna
-    """
-    print("\nTraining final model with best parameters...")
-    folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
-    folders_names = ["content", "function"]
-    
-    # Prepare dataset
-    train_files, test_files, y_train, y_test = NN_prep(folders_path, folders_names)
-    
-    # Create a directory for the best model
-    best_model_dir = os.path.join(saveFolder, "best_model")
-    os.makedirs(best_model_dir, exist_ok=True)
-    
-    # Create a "fake" trial with the best parameters
-    class FakeTrial:
-        def __init__(self, params):
-            self.params = params
-            
-        def suggest_categorical(self, name, choices):
-            return self.params[name]
-            
-        def suggest_float(self, name, low, high, step=None, log=False):
-            return self.params[name]
-            
-        def suggest_int(self, name, low, high, step=1, log=False):
-            return self.params[name]
-    
-    fake_trial = FakeTrial(best_params)
-    
-    # Train model with best parameters
-    best_model, best_cosine_sim = NN(train_files, test_files, y_train, y_test, fake_trial)
-    
-    # Save the best model
-    best_model.save(os.path.join(best_model_dir, "best_model.keras"))
-    
-    print(f"\nBest model trained with cosine similarity: {best_cosine_sim:.4f}")
-    print(f"Best model saved to: {best_model_dir}")
-    
-    return best_model, best_cosine_sim
-
-# Main execution
-if __name__ == "__main__":
-    # Parse command-line arguments (optional)
-    import argparse
-    parser = argparse.ArgumentParser(description='Run neural network training with Optuna hyperparameter optimization')
-    parser.add_argument('--optimize', action='store_true', help='Run Optuna optimization')
-    parser.add_argument('--trials', type=int, default=30, help='Number of Optuna trials to run')
-    parser.add_argument('--load-best', action='store_true', help='Load and use best parameters from file')
-    parser.add_argument('--params-file', type=str, default=None, help='Path to best parameters file')
-    args = parser.parse_args()
-    
-    # Setup folder for files
-    print(f"Saving results to: {saveFolder}")
-    
-    if args.optimize:
-        # Run Optuna optimization
-        print(f"Running Optuna optimization with {args.trials} trials...")
-        best_params = run_optimization(n_trials=args.trials)
-        
-        # Train with best parameters
-        best_model, best_cosine_sim = train_with_best_params(best_params)
-    elif args.load_best and args.params_file:
-        # Load best parameters from file
-        import json
-        with open(args.params_file, 'r') as f:
-            best_params = json.load(f)
-        print(f"Loaded best parameters from {args.params_file}")
-        
-        # Train with loaded parameters
-        best_model, best_cosine_sim = train_with_best_params(best_params)
-    else:
-        # Run regular training without optimization
-        print("Running regular training without optimization...")
-        folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
-        folders_names = ["content", "function"]
-        
-        # Prepare dataset
-        train_files, test_files, y_train, y_test = NN_prep(folders_path, folders_names)
-        
-        # Train and evaluate CNN
-        model = NN(train_files, test_files, y_train, y_test)
-    
-    print("Training completed successfully!")
+print ("ended without crashing")
