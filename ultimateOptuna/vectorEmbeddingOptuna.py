@@ -16,9 +16,10 @@ from optuna.integration import TFKerasPruningCallback
 import re
 
 # Original memory management
+
 import gc
 gc.collect()
-tf.keras.backend.clear_session()
+K.clear_session()
 
 #load NLP model, not using gensim
 def load_glove_model(file_path):
@@ -99,7 +100,8 @@ def spectrogram_CNN(trial=None):
     
     dense_units = trial.suggest_categorical('dense_units', [128, 256, 512])
     dropout_rate = trial.suggest_float('dropout_rate', 0.2, 0.5)
-    learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)
+
     
     # Original model architecture with tunable hyperparameters
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
@@ -237,7 +239,7 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
     
     # Create and compile model
     model = spectrogram_CNN(trial)
-    model.compile(optimizer=Adam(learning_rate=learning_rate), 
+    model.compile(optimizer=optimizer, 
                   loss=cosine_similarity_loss, 
                   metrics=['accuracy', cosine_similarity])    
     # Train model with reduced epochs for faster trials
