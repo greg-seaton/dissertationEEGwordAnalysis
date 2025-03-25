@@ -15,8 +15,6 @@ import optuna
 from optuna.integration import TFKerasPruningCallback
 import re
 
-#latest version
-
 # Original memory management
 import gc
 gc.collect()
