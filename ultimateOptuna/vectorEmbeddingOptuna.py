@@ -7,7 +7,6 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, Flatten, Dense, Dropout, Concatenate, BatchNormalization
 from tensorflow.keras.optimizers import SGD, Adam
-import tensorflow.keras.backend as K
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from datetime import datetime
 from sklearn.utils import shuffle
@@ -16,6 +15,8 @@ from optuna.integration import TFKerasPruningCallback
 import re
 
 # Original memory management
+
+K = tf.keras.backend
 
 import gc
 gc.collect()
