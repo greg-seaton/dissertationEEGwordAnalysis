@@ -16,7 +16,9 @@ from optuna.integration import TFKerasPruningCallback
 #memory management dont know if it does anything, but worth a try
 import gc
 gc.collect()
-K.clear_session()
+
+datetime.now().strftime("%Y-%m-%d_%H-%M")
+
 
 #setting up model save folder. (x and y test data, a number of models, best test performance)
 current_directory = os.path.dirname(os.path.abspath(__file__))

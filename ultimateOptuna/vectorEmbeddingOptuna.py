@@ -8,6 +8,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, Flatten, Dense, Dropout, Concatenate, BatchNormalization
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras import backend as K
 from datetime import datetime
 from sklearn.utils import shuffle
 import optuna
@@ -16,11 +17,11 @@ import re
 
 # Original memory management
 
-K = tf.keras.backend
-
 import gc
 gc.collect()
-K.clear_session()
+
+print (datetime.now().strftime("%Y-%m-%d_%H-%M"))
+
 
 #load NLP model, not using gensim
 def load_glove_model(file_path):
