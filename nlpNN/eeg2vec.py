@@ -10,10 +10,7 @@ from tensorflow.keras.optimizers import SGD, Adam
 import tensorflow.keras.backend as K
 from tensorflow.keras.losses import Loss
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-import matplotlib.pyplot as plt
-import matplotlib
 from sklearn.utils import shuffle
-matplotlib.use('TkAgg')
 
 import re
 from datetime import datetime
@@ -24,9 +21,19 @@ import gc
 gc.collect()
 tf.keras.backend.clear_session()
 
-#load the nlp model
-import gensim.downloader as api
-NLPmodel = api.load("glove-wiki-gigaword-100")  # 100D, ~91MB
+#load NLP model, not using gensim
+def load_glove_model(file_path):
+    word_vectors = {}
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            values = line.split()
+            word = values[0]  # First token is the word
+            vector = np.array(values[1:], dtype=np.float32)  # Rest are vector values
+            word_vectors[word] = vector
+    return word_vectors
+
+# Load the model from your current directory
+NLPmodel = load_glove_model("../glove-wiki-gigaword-100")
 
 
 #setup folders
@@ -119,6 +126,8 @@ def NN_prep(folders_path, folders_names):
     y_test = np.array(y_test, dtype=np.float32)
     y_valid = np.array(y_valid, dtype=np.float32)
 
+    print ("___________ x_test", X_test[0], X_test[1], X_test[2])
+
     return X_train, X_test, X_valid, y_train, y_test, y_valid
 
 #loads all the data required for each word (no EEGs, width, height, grayscale)
@@ -191,6 +200,8 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
         f.write(f"Test Cosine Similarity: {test_cosine_sim}\n")
 
 
+
+    ##visualise the predictions
     predictions = model.predict(X_test, verbose=0)
 
     cosine_similarities = np.sum(predictions * y_test, axis=-1) / (
@@ -204,6 +215,11 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
         print(f"  True Vector: {y_test[i][:45]}...")
         print(f"  Cosine Similarity: {cosine_similarities[i]:.4f}")
         print("-" * 50)
+
+
+    #predictions - predicted vectors
+    #y_test - true vectors
+    #x_test - contains the word
 
     return model
 
