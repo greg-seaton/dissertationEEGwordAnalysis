@@ -1,0 +1,32 @@
+Trial 0:
+  Parameters: {'filters': 56, 'kernel_size': (7, 7), 'pool_size': 3, 'dense_units': 64, 'dropout_rate': 0.4377617373744025, 'learning_rate': 2.3878475827155486e-05, 'optimizer': 'Adam', 'batch_size': 16, 'beta_1': 0.9820275234318125, 'beta_2': 0.8359895885622897}
+  Accuracy: 0.5245901346206665
+
+Trial 1:
+  Parameters: {'filters': 120, 'kernel_size': (5, 7), 'pool_size': 2, 'dense_units': 256, 'dropout_rate': 0.3835687040503303, 'learning_rate': 0.0023410818165732084, 'optimizer': 'Adam', 'batch_size': 4, 'beta_1': 0.9618706312007521, 'beta_2': 0.8475319435052298}
+  Accuracy: 0.5573770403862
+
+Trial 2:
+  Parameters: {'filters': 88, 'kernel_size': (9, 5), 'pool_size': 2, 'dense_units': 128, 'dropout_rate': 0.3795234553851474, 'learning_rate': 0.00010119323760167587, 'optimizer': 'SGD', 'batch_size': 4, 'momentum': 0.6315654514178287}
+  Accuracy: 0.5245901346206665
+
+Trial 3:
+  Parameters: {'filters': 120, 'kernel_size': (3, 9), 'pool_size': 2, 'dense_units': 192, 'dropout_rate': 0.2852623978606842, 'learning_rate': 0.001717910355275904, 'optimizer': 'Adam', 'batch_size': 4, 'beta_1': 0.8542617195699218, 'beta_2': 0.8474097432270625}
+  Accuracy: 0.5901639461517334
+
+Trial 4:
+  Parameters: {'filters': 32, 'kernel_size': (3, 5), 'pool_size': 3, 'dense_units': 224, 'dropout_rate': 0.31796856136931373, 'learning_rate': 0.000834312189895803, 'optimizer': 'SGD', 'batch_size': 8, 'momentum': 0.10570659750836885}
+  Accuracy: 0.5245901346206665
+
+Trial 5:
+  Parameters: {'filters': 48, 'kernel_size': (7, 7), 'pool_size': 3, 'dense_units': 480, 'dropout_rate': 0.3451707892749267, 'learning_rate': 6.970796550798017e-05, 'optimizer': 'Adam', 'batch_size': 4, 'beta_1': 0.8900104969303505, 'beta_2': 0.8382881692510641}
+  Accuracy: 0.5901639461517334
+
+Trial 6:
+  Parameters: {'filters': 128, 'kernel_size': (9, 9), 'pool_size': 3, 'dense_units': 320, 'dropout_rate': 0.3756287168438769, 'learning_rate': 6.635866759243628e-05, 'optimizer': 'Adam', 'batch_size': 4, 'beta_1': 0.8191589994495431, 'beta_2': 0.9582915161777797}
+  Accuracy: 0.6557376980781555
+
+Trial 7:
+  Parameters: {'filters': 80, 'kernel_size': (3, 3), 'pool_size': 2, 'dense_units': 448, 'dropout_rate': 0.33310184018051603, 'learning_rate': 0.00022680820035770103, 'optimizer': 'Adam', 'batch_size': 32, 'beta_1': 0.8171346310841241, 'beta_2': 0.8213580325697767}
+  Accuracy: 0.688524603843689
+
