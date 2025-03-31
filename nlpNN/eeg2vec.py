@@ -1,3 +1,5 @@
+#no extra dense units on input branches
+
 from PIL import Image
 import os
 import random
@@ -186,7 +188,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
     model.fit(
         X_train, y_train,
         batch_size=4,
-        epochs=2,
+        epochs=40,
         verbose=1,
         shuffle=True,
         callbacks=[saveModelCallback, early_stopping],
@@ -219,16 +221,40 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         print("-" * 50)
 
     #post analysis, ranking prediction against actual labels
-
     ranks = []  # To store the ranks of the correct labels
 
     for i in range(len(X_test_words)):
-        similarities = [cosine_similarity([predictions[i]], label) for label in y_test]
-        sorted_indices = np.argsort(similarities)[::-1]  # Sort indices in descending order
-        correct_index = np.where(sorted_indices == i)[0][0]  # Find the rank of the correct label
+        similarities = []
+        for j in range(len(y_test)):
+            # Convert numpy arrays to TensorFlow tensors
+            pred_tensor = tf.constant([predictions[i]], dtype=tf.float32)
+            true_tensor = tf.constant([y_test[j]], dtype=tf.float32)
+            
+            # Use your cosine_similarity function with TensorFlow tensors
+            sim = cosine_similarity(true_tensor, pred_tensor)
+            
+            # Execute the TensorFlow operation and get the result as a numpy value
+            sim_value = float(sim.numpy())
+            similarities.append(sim_value)
+        
+        # Convert to numpy array
+        similarities = np.array(similarities)
+        
+        # Sort indices in descending order (highest similarity first)
+        sorted_indices = np.argsort(similarities)[::-1]
+        
+        # Find the position of the correct index (which is i)
+        correct_index = np.where(sorted_indices == i)[0][0]
+        
+        # Add the rank to our list
         ranks.append(correct_index)
 
+    print ("Number of samples", len(X_test_words))
     print("Ranks of correct labels:", ranks)
+    print(f"Mean Reciprocal Rank: {np.mean(1 / (np.array(ranks) + 1))}")
+    print(f"Median rank: {np.median(ranks)}")
+    print(f"Top-1 accuracy: {sum(np.array(ranks) == 0) / len(ranks)}")
+    print(f"Top-5 accuracy: {sum(np.array(ranks) < 5) / len(ranks)}")
 
 
 

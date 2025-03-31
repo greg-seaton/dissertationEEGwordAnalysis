@@ -1,3 +1,5 @@
+#extra dense units on input branches
+
 from PIL import Image
 import os
 import random
@@ -14,8 +16,6 @@ from sklearn.utils import shuffle
 
 import re
 from datetime import datetime
-
-##this differs from the original eeg2vec in the way that it has dense units added to the 32 input branches after the convolutional steps
 
 
 #claude suggested method to use less memory
@@ -193,7 +193,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
     model.fit(
         X_train, y_train,
         batch_size=4,
-        epochs=2,
+        epochs=40,
         verbose=1,
         shuffle=True,
         callbacks=[saveModelCallback, early_stopping],
@@ -255,6 +255,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         # Add the rank to our list
         ranks.append(correct_index)
 
+    print ("Number of samples", len(X_test_words))
     print("Ranks of correct labels:", ranks)
     print(f"Mean Reciprocal Rank: {np.mean(1 / (np.array(ranks) + 1))}")
     print(f"Median rank: {np.median(ranks)}")
