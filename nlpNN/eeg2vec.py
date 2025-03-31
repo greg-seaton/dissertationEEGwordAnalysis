@@ -218,16 +218,12 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         print(f"  Cosine Similarity: {cosine_similarities[i]:.4f}")
         print("-" * 50)
 
-
-    print ("lengths")
-
-
     #post analysis, ranking prediction against actual labels
 
     ranks = []  # To store the ranks of the correct labels
 
     for i in range(len(X_test_words)):
-        similarities = [cosine_similarity([predictions[i]], [label]) for label in y_test]
+        similarities = [cosine_similarity([predictions[i]], label) for label in y_test]
         sorted_indices = np.argsort(similarities)[::-1]  # Sort indices in descending order
         correct_index = np.where(sorted_indices == i)[0][0]  # Find the rank of the correct label
         ranks.append(correct_index)
