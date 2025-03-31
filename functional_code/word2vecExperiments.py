@@ -1,4 +1,6 @@
 import gensim.downloader as api
+from tensorflow.keras import backend as K
+
 
 print ("start")
 # print(api.info())  # Lists all available models
@@ -11,17 +13,22 @@ model = api.load("glove-wiki-gigaword-100")
 
 print ("loaded")
 
-# Compute cosine similarity
-similarity_food_eat = model.similarity("food", "eat")
-similarity_kettle_underpass = model.similarity("kettle", "underpass")
+def cosine_similarity(y_true, y_pred):
+    return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))
 
-print("Similarity between 'food' and 'eat':", similarity_food_eat)
-print("Similarity between 'kettle' and 'underpass':", similarity_kettle_underpass)
+def cosine_similarityNorm(y_true, y_pred):
+    y_true = y_true / K.sqrt(K.sum(y_true**2, axis=-1, keepdims=True))
+    y_pred = y_pred / K.sqrt(K.sum(y_pred**2, axis=-1, keepdims=True))
+    return K.sum(y_true * y_pred, axis=-1)
 
-print ("vector axe", model["axe"])
 
-print ("vector food", model["food"])
-print ("vector eat", model["eat"])
+words=["head", "hat"]
 
-print ("vector kettle", model["kettle"])
-print ("vector underpass", model["underpass"])
+print ("my func", cosine_similarity(model[words[0]], model[words[1]]))
+print ("my func norm", cosine_similarityNorm(model[words[0]], model[words[1]]))
+
+print ("inbuilt", model.similarity(words[0], words[1]))
+
+# similarity_food_eat = model.similarity("food", "eat")
+# similarity_kettle_underpass = model.similarity("kettle", "underpass")
+

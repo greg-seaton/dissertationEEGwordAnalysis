@@ -12,11 +12,10 @@ from tensorflow.keras.losses import Loss
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import matplotlib.pyplot as plt
 import matplotlib
+from sklearn.utils import shuffle
 matplotlib.use('TkAgg')
 
 import re
-import torch
-import torch.nn.functional as F
 from datetime import datetime
 
 
@@ -71,13 +70,13 @@ def cosine_similarity_loss(y_true, y_pred):
 def cosine_similarity(y_true, y_pred):
     return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))
 
-#initalises where to find the test and train files and labels them
 def NN_prep(folders_path, folders_names):
     label_map = {"content": 0, "function": 1}
     train_files = []
-    test_files = []
+    testValid_files = []
     y_train = []
-    y_test = []
+    y_testValid = []
+
 
     for folder in folders_names:
         full_path = os.path.join(folders_path, folder)
@@ -88,19 +87,39 @@ def NN_prep(folders_path, folders_names):
                 participant_path = os.path.join(full_path, participant)
                 if os.path.isdir(participant_path):
                     print("Participant:", participant)
-                    participant_words = os.listdir(participant_path)
+                    participant_words = os.listdir(participant_path) #all the word folder locations
                     random.shuffle(participant_words)
                     split_idx = int(len(participant_words) * 0.7)
-                    train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]])
-                    test_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]])
-                    y_train.extend(getVector(word) for word in participant_words[:split_idx])  #removeIndex gets rid of the word index
-                    y_test.extend(getVector(word) for word in participant_words[split_idx:])
+                    train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]]) #first 70%
+                    testValid_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]]) #last 30%
+                    y_train.extend(getVector(word) for word in participant_words[:split_idx])
+                    y_testValid.extend(getVector(word) for word in participant_words[split_idx:])
         else:
             print(f"Folder not found: {full_path}")
 
+    testValid_files, y_testValid = shuffle(testValid_files, y_testValid)
+
+    val_idx = int(len(testValid_files) * 0.5)
+
+    X_train_samples = [load_sample(file) for file in train_files] 
+    X_test_samples = [load_sample(testValid_files[i]) for i in range(0, val_idx)]
+    X_valid_samples = [load_sample(testValid_files[i]) for i in range(val_idx, len(testValid_files))]
+
+    # Convert to list of 32 arrays, each with shape (n_samples, 56, 107, 1)
+    X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
+    X_test = [np.array([sample[i] for sample in X_test_samples]) for i in range(32)]
+    X_valid = [np.array([sample[i] for sample in X_valid_samples]) for i in range(32)]
+
+    # Ensure labels match the split of test files
+    y_test_split = np.array(y_testValid)
+    y_test = y_test_split[:val_idx]
+    y_valid = y_test_split[val_idx:]
+
     y_train = np.array(y_train, dtype=np.float32)
     y_test = np.array(y_test, dtype=np.float32)
-    return train_files, test_files, y_train, y_test
+    y_valid = np.array(y_valid, dtype=np.float32)
+
+    return X_train, X_test, X_valid, y_train, y_test, y_valid
 
 #loads all the data required for each word (no EEGs, width, height, grayscale)
 def load_sample(folder_path):
@@ -114,72 +133,49 @@ def load_sample(folder_path):
 
     return sample_data
 
-
 def spectrogram_CNN():
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
     cnn_outputs = []
     for input_layer in inputs:
         x = Conv2D(filters=32, kernel_size=(5, 5), activation='relu', padding='same')(input_layer)
         x = BatchNormalization()(x)
-        x = MaxPool2D(pool_size=(3, 3))(x)
+        x = MaxPool2D(pool_size=(3, 2))(x)
         x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
         x = MaxPool2D(pool_size=(2, 2))(x)
         x = Flatten()(x)  # Consider replacing this with GlobalAveragePooling2D()
         cnn_outputs.append(x)
     combined = Concatenate()(cnn_outputs)
-    x = Dense(256, activation='relu')(combined)
+    x = Dense(512, activation='relu')(combined)
     x = BatchNormalization()(x)
-    x = Dropout(0.3)(x)  # Increased dropout
+    x = Dropout(0.47479559089385054)(x)  # Increased dropout
     output = Dense(100, activation='linear')(x)
     model = Model(inputs=inputs, outputs=output)
     return model
 
-def NN(train_files, test_files, y_train, y_test):
-    # Making validation set
-    val_idx = int(len(test_files) * 0.5)
-
-    X_train_samples = [load_sample(file) for file in train_files] 
-    X_test_samples = [load_sample(test_files[i]) for i in range(0, val_idx)]
-    X_valid_samples = [load_sample(test_files[i]) for i in range(val_idx, len(test_files))]
-
-    # Convert to list of 32 arrays, each with shape (n_samples, 56, 107, 1)
-    X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
-    X_test = [np.array([sample[i] for sample in X_test_samples]) for i in range(32)]
-    X_valid = [np.array([sample[i] for sample in X_valid_samples]) for i in range(32)]
-
-    # Ensure labels match the split of test files
-
-    y_test_split = np.array(y_test)  # Convert to numpy array for indexing consistency
-    y_test = y_test_split[:val_idx]   # First half - for X_test
-    y_valid = y_test_split[val_idx:]
-
-    # Debugging shape mismatches
-    print(f"X_train shape: {X_train[0].shape}, y_train shape: {len(y_train)}")
-    print(f"X_valid shape: {X_valid[0].shape}, y_valid shape: {len(y_valid)}")
-    print(f"X_test shape: {X_test[0].shape}, y_test shape: {len(y_test)}")
-
+def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
     np.savez(os.path.join(saveFolder, "test_data.npz"), 
             X_test=X_test,  # Convert to a single array
             y_test=y_test)
 
     # Create and compile model
     model = spectrogram_CNN()
-    model.compile(optimizer=Adam(learning_rate=0.00064), loss=cosine_similarity_loss, metrics=['accuracy', cosine_similarity])
+    model.compile(optimizer=Adam(learning_rate=0.003484660925656064, beta_1=0.886221166624916, beta_2=0.9059015852303618), loss=cosine_similarity_loss, metrics=['accuracy', cosine_similarity])
 
     #implementing early stopping
     early_stopping = EarlyStopping(
-        monitor="val_loss",  # Monitor validation loss
+        monitor="val_accuracy",  # Monitor validation loss
         patience=10,         # Stop if val_loss does not improve for 10 epochs
         restore_best_weights=True,  # Restore model weights from best epoch
+        mode="max",
         verbose=1
     )
 
     # Train model
     model.fit(
         X_train, y_train,
-        batch_size=8,
-        epochs=2,
+        batch_size=4,
+        epochs=40,
         verbose=1,
         shuffle=True,
         callbacks=[saveModelCallback, early_stopping],
@@ -211,14 +207,14 @@ def NN(train_files, test_files, y_train, y_test):
 
     return model
 
-folders_path = os.path.join(current_directory, "../dataSets/spectrogramDataHighGran")
+folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
 folders_names = ["content", "function"]
 
 # Prepare dataset
-train_files, test_files, y_train, y_test = NN_prep(folders_path, folders_names)
+X_train, X_test, X_valid, y_train, y_test, y_valid = NN_prep(folders_path, folders_names)
 
 # Train and evaluate CNN
-model = NN(train_files, test_files, y_train, y_test)
+model = NN(X_train, X_test, X_valid, y_train, y_test, y_valid)
 
 
 print ("ended without crashing")
