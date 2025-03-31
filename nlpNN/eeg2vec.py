@@ -75,7 +75,7 @@ def cosine_similarity_loss(y_true, y_pred):
     return 1 - K.sum(y_true * y_pred, axis=-1)
 
 def cosine_similarity(y_true, y_pred):
-    return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))
+    return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))    
 
 def NN_prep(folders_path, folders_names):
     label_map = {"content": 0, "function": 1}
@@ -83,6 +83,7 @@ def NN_prep(folders_path, folders_names):
     testValid_files = []
     y_train = []
     y_testValid = []
+    testValid_words = []
 
 
     for folder in folders_names:
@@ -101,16 +102,18 @@ def NN_prep(folders_path, folders_names):
                     testValid_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]]) #last 30%
                     y_train.extend(getVector(word) for word in participant_words[:split_idx])
                     y_testValid.extend(getVector(word) for word in participant_words[split_idx:])
+                    testValid_words.extend(word for word in participant_words[split_idx:])
         else:
             print(f"Folder not found: {full_path}")
 
-    testValid_files, y_testValid = shuffle(testValid_files, y_testValid)
+    testValid_files, y_testValid, testValid_words = shuffle(testValid_files, y_testValid, testValid_words)
 
     val_idx = int(len(testValid_files) * 0.5)
 
     X_train_samples = [load_sample(file) for file in train_files] 
     X_test_samples = [load_sample(testValid_files[i]) for i in range(0, val_idx)]
     X_valid_samples = [load_sample(testValid_files[i]) for i in range(val_idx, len(testValid_files))]
+    X_test_words = testValid_words[:val_idx]
 
     # Convert to list of 32 arrays, each with shape (n_samples, 56, 107, 1)
     X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
@@ -126,9 +129,8 @@ def NN_prep(folders_path, folders_names):
     y_test = np.array(y_test, dtype=np.float32)
     y_valid = np.array(y_valid, dtype=np.float32)
 
-    print ("___________ x_test", X_test[0], X_test[1], X_test[2])
 
-    return X_train, X_test, X_valid, y_train, y_test, y_valid
+    return X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words
 
 #loads all the data required for each word (no EEGs, width, height, grayscale)
 def load_sample(folder_path):
@@ -162,7 +164,7 @@ def spectrogram_CNN():
     model = Model(inputs=inputs, outputs=output)
     return model
 
-def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
+def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
     np.savez(os.path.join(saveFolder, "test_data.npz"), 
             X_test=X_test,  # Convert to a single array
             y_test=y_test)
@@ -184,7 +186,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
     model.fit(
         X_train, y_train,
         batch_size=4,
-        epochs=40,
+        epochs=2,
         verbose=1,
         shuffle=True,
         callbacks=[saveModelCallback, early_stopping],
@@ -209,7 +211,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
     )
 
     print("\nTest Predictions and Cosine Similarities:")
-    for i in range(min(30, len(y_test))):
+    for i in range(min(5, len(y_test))):
         print(f"Sample {i}:")
         print(f"  Predicted Vector: {predictions[i][:45]}...")
         print(f"  True Vector: {y_test[i][:45]}...")
@@ -217,9 +219,26 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid):
         print("-" * 50)
 
 
+    print ("lengths")
+
+
+    #post analysis, ranking prediction against actual labels
+
+    ranks = []  # To store the ranks of the correct labels
+
+    for i in range(len(X_test_words)):
+        similarities = [cosine_similarity([predictions[i]], [label]) for label in y_test]
+        sorted_indices = np.argsort(similarities)[::-1]  # Sort indices in descending order
+        correct_index = np.where(sorted_indices == i)[0][0]  # Find the rank of the correct label
+        ranks.append(correct_index)
+
+    print("Ranks of correct labels:", ranks)
+
+
+
     #predictions - predicted vectors
     #y_test - true vectors
-    #x_test - contains the word
+    #X_test_words - contains the word
 
     return model
 
@@ -227,14 +246,10 @@ folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
 folders_names = ["content", "function"]
 
 # Prepare dataset
-X_train, X_test, X_valid, y_train, y_test, y_valid = NN_prep(folders_path, folders_names)
+X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words = NN_prep(folders_path, folders_names)
 
 # Train and evaluate CNN
-model = NN(X_train, X_test, X_valid, y_train, y_test, y_valid)
+model = NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words)
 
 
 print ("ended without crashing")
-
-#saved results
-#sgd test loss (only 40 epochs)
-#Test loss: 0.8670620322227478, Test Accuracy: 0.16049382090568542
