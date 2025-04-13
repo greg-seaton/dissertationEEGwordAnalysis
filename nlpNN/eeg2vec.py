@@ -203,8 +203,6 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         f.write(f"Test Accuracy: {test_acc}\n")
         f.write(f"Test Cosine Similarity: {test_cosine_sim}\n")
 
-
-
     ##visualise the predictions
     predictions = model.predict(X_test, verbose=0)
 
@@ -264,7 +262,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
 
     return model
 
-folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
+folders_path = os.path.join(current_directory, "../spectrogramDataHighGranFull")
 folders_names = ["content", "function"]
 
 # Prepare dataset

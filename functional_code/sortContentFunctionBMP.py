@@ -67,11 +67,11 @@ def getUniqueFolder(base_path, word):
     return folder_path
 
 def exportToContent(source_folder, word):
-    destination_folder = getUniqueFolder("/home/greg/Documents/GregCode/spectrogramDataHighGran/content", word)
+    destination_folder = getUniqueFolder("/home/greg/Documents/GregCode/spectrogramDataHighGranFull2/content", word)
     shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
 
 def exportToFunction(source_folder, word):
-    destination_folder = getUniqueFolder("/home/greg/Documents/GregCode/spectrogramDataHighGran/function", word)
+    destination_folder = getUniqueFolder("/home/greg/Documents/GregCode/spectrogramDataHighGranFull2/function", word)
     shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
 
 def main():
@@ -81,7 +81,7 @@ def main():
     for folder in folders:
         print ("\n\n\n",folder)
         for i in range (1,pariticpants+1):
-            directory = "/home/greg/Documents/GregCode/spectrogramDataHighGran/"+folder+"/"+str(i)+"/"
+            directory = "/home/greg/Documents/GregCode/dataSets/spectrogramDataHighGranFull/"+folder+"/"+str(i)+"/"
             word_folders = os.listdir(directory)  # List all files and folders
             for word_folder in word_folders:
                 sourceFolder = os.path.join(directory, word_folder)

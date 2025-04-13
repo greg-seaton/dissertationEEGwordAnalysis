@@ -21,14 +21,18 @@ def cosine_similarityNorm(y_true, y_pred):
     y_pred = y_pred / K.sqrt(K.sum(y_pred**2, axis=-1, keepdims=True))
     return K.sum(y_true * y_pred, axis=-1)
 
+words=["food", "eat"]
 
-words=["head", "hat"]
+while "n" not in words:
+    words[0] = input ("word 0")
+    words[1] = input ("word 1")
 
-print ("my func", cosine_similarity(model[words[0]], model[words[1]]))
-print ("my func norm", cosine_similarityNorm(model[words[0]], model[words[1]]))
+    print("cosine similarity =", cosine_similarity(model[words[0]], model[words[1]]))
 
-print ("inbuilt", model.similarity(words[0], words[1]))
+# print ("my func", cosine_similarity(model[words[0]], model[words[1]]))
+# print ("my func norm", cosine_similarityNorm(model[words[0]], model[words[1]]))
+
+# print ("inbuilt", model.similarity(words[0], words[1]))
 
 # similarity_food_eat = model.similarity("food", "eat")
 # similarity_kettle_underpass = model.similarity("kettle", "underpass")
-
