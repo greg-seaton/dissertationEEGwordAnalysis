@@ -100,10 +100,13 @@ def spectrogram_CNN(trial=None):
     pool_size2_w = trial.suggest_categorical('pool_size2_w', [2, 3])
     pool_size2 = (pool_size2_h, pool_size2_w)
     
+    # Add branch dense units parameter
+    branch_dense_units = trial.suggest_categorical('branch_dense_units', [32, 64, 128])
+    branch_dropout_rate = trial.suggest_float('branch_dropout_rate', 0.1, 0.4)
+    
     dense_units = trial.suggest_categorical('dense_units', [128, 256, 512])
     dropout_rate = trial.suggest_float('dropout_rate', 0.2, 0.5)
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)
-
     
     # Original model architecture with tunable hyperparameters
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
@@ -116,6 +119,12 @@ def spectrogram_CNN(trial=None):
         x = BatchNormalization()(x)
         x = MaxPool2D(pool_size=pool_size2)(x)
         x = Flatten()(x)
+        
+        # Add branch dense layer
+        x = Dense(branch_dense_units, activation='relu')(x)
+        x = BatchNormalization()(x)
+        x = Dropout(branch_dropout_rate)(x)
+        
         cnn_outputs.append(x)
     combined = Concatenate()(cnn_outputs)
     x = Dense(dense_units, activation='relu')(combined)
@@ -267,6 +276,8 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
         'kernel_size2': (trial.params['kernel_size2_h'], trial.params['kernel_size2_w']),
         'pool_size1': (trial.params['pool_size1_h'], trial.params['pool_size1_w']),
         'pool_size2': (trial.params['pool_size2_h'], trial.params['pool_size2_w']),
+        'branch_dense_units': trial.params['branch_dense_units'],  # New parameter
+        'branch_dropout_rate': trial.params['branch_dropout_rate'],  # New parameter
         'dense_units': trial.params['dense_units'],
         'dropout_rate': trial.params['dropout_rate'],
         'learning_rate': trial.params['learning_rate'],
@@ -350,7 +361,7 @@ def train_final_model(study, X_train, X_test, X_valid, y_train, y_test, y_valid)
         f.write(f"Test Accuracy: {test_acc}\n)")
 
 # Paths
-folders_path = os.path.join(current_directory, "../spectrogramDataHighGran")
+folders_path = os.path.join(current_directory, "../spectrogramDataHighGranFull2")
 folders_names = ["content", "function"]
 
 # Prepare dataset
