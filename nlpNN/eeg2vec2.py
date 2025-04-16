@@ -174,23 +174,23 @@ def spectrogram_CNN():
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
     cnn_outputs = []
     for input_layer in inputs:
-        x = Conv2D(filters=32, kernel_size=(5, 5), activation='relu', padding='same')(input_layer)
+        x = Conv2D(filters=16, kernel_size=(7, 7), activation='relu', padding='same')(input_layer)
         x = BatchNormalization()(x)
         x = MaxPool2D(pool_size=(3, 2))(x)
         x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
-        x = MaxPool2D(pool_size=(2, 2))(x)
+        x = MaxPool2D(pool_size=(3, 3))(x)
         x = Flatten()(x)
 
-        x = Dense(64, activation='relu')(x)
+        x = Dense(128, activation='relu')(x)
         x = BatchNormalization()(x)
-        x = Dropout(0.3)(x)
+        x = Dropout(0.14646860733325393)(x)
 
         cnn_outputs.append(x)
     combined = Concatenate()(cnn_outputs)
-    x = Dense(256, activation='relu')(combined) #changed to from 512 (optuna) to 256 for speed and testing
+    x = Dense(128, activation='relu')(combined) #changed to from 512 (optuna) to 256 for speed and testing
     x = BatchNormalization()(x)
-    x = Dropout(0.47479559089385054)(x)  # Increased dropout
+    x = Dropout(0.253325747247369)(x)  # Increased dropout
     output = Dense(100, activation='linear')(x)
     model = Model(inputs=inputs, outputs=output)
     return model
