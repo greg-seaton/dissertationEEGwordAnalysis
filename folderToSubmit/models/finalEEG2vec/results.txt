@@ -1,0 +1,3 @@
+Test loss: 0.3258170187473297
+Test Accuracy: 0.5409252643585205
+Test Cosine Similarity: 0.6741830706596375
