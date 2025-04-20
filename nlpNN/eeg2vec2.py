@@ -13,36 +13,28 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.losses import Loss
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from sklearn.utils import shuffle
-import gensim.downloader as api
+# import gensim.downloader as api
 
 import re
 from datetime import datetime
 
 # glove_model = api.load("glove-wiki-gigaword-100")
 
-
-
-#claude suggested method to use less memory
-import gc
-gc.collect()
-tf.keras.backend.clear_session()
-
 # #load NLP model, not using gensim
-# def load_glove_model(file_path):
-#     word_vectors = {}
-#     with open(file_path, "r", encoding="utf-8") as f:
-#         for line in f:
-#             values = line.split()
-#             word = values[0]  # First token is the word
-#             vector = np.array(values[1:], dtype=np.float32)  # Rest are vector values
-#             word_vectors[word] = vector
-#     return word_vectors
+def load_glove_model(file_path):
+    word_vectors = {}
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            values = line.split()
+            word = values[0]  # First token is the word
+            vector = np.array(values[1:], dtype=np.float32)  # Rest are vector values
+            word_vectors[word] = vector
+    return word_vectors
 
 # Load the model from your current directory
-# NLPmodel = load_glove_model("../glove-wiki-gigaword-100") #before it had no .gz, added .gz to see if it works
+NLPmodel = load_glove_model("../glove-wiki-gigaword-100") #before it had no .gz, added .gz to see if it works
 
-NLPmodel = api.load("glove-wiki-gigaword-100")
-
+# NLPmodel = api.load("glove-wiki-gigaword-100")
 
 #setup folders
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -91,8 +83,8 @@ def NN_prep(folders_path, folders_names):
     testValid_files = []
     y_train = []
     y_testValid = []
+    train_words = []
     testValid_words = []
-
 
     for folder in folders_names:
         full_path = os.path.join(folders_path, folder)
@@ -109,6 +101,7 @@ def NN_prep(folders_path, folders_names):
                     train_files.extend([os.path.join(participant_path, word) for word in participant_words[:split_idx]]) #first 70%
                     testValid_files.extend([os.path.join(participant_path, word) for word in participant_words[split_idx:]]) #last 30%
                     y_train.extend(getVector(word) for word in participant_words[:split_idx])
+                    train_words.extend(word for word in participant_words[:split_idx])
                     y_testValid.extend(getVector(word) for word in participant_words[split_idx:])
                     testValid_words.extend(word for word in participant_words[split_idx:])
         else:
@@ -121,8 +114,13 @@ def NN_prep(folders_path, folders_names):
     X_train_samples = [load_sample(file) for file in train_files] 
     X_test_samples = [load_sample(testValid_files[i]) for i in range(0, val_idx)]
     X_valid_samples = [load_sample(testValid_files[i]) for i in range(val_idx, len(testValid_files))]
-    X_test_words = testValid_words[:val_idx]
-    print ("x test words", len(X_test_words),":",X_test_words)
+    test_words = testValid_words[:val_idx]
+    valid_words = testValid_words[val_idx:]
+    print ("x test words", len(test_words),":",test_words)
+    np.savez_compressed("words_labels.npz", 
+                    train_words=train_words,
+                    valid_words=valid_words,
+                    test_words=test_words)
 
     # Convert to list of 32 arrays, each with shape (n_samples, 56, 107, 1)
     X_train = [np.array([sample[i] for sample in X_train_samples]) for i in range(32)]
@@ -138,25 +136,7 @@ def NN_prep(folders_path, folders_names):
     y_test = np.array(y_test, dtype=np.float32)
     y_valid = np.array(y_valid, dtype=np.float32)
 
-
-
-    a = np.array(X_train)
-    b = np.array(X_test)
-    c = np.array(X_valid)
-
-    print(a.shape)  # Now it's a NumPy array, so .shape works
-    print(b.shape)
-    print(c.shape)
-
-    print (len(y_train))
-    print (len(y_test))
-    print (len(y_valid))
-
-    print (y_test)
-
-
-
-    return X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words
+    return X_train, X_test, X_valid, y_train, y_test, y_valid, test_words
 
 #loads all the data required for each word (no EEGs, width, height, grayscale)
 def load_sample(folder_path):
@@ -199,8 +179,14 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
     np.savez(os.path.join(saveFolder, "test_data.npz"), 
             X_test=X_test,  # Convert to a single array
             y_test=y_test)
+    np.savez(os.path.join(saveFolder, "train_data.npz"), 
+            X_train=X_train,  # Convert to a single array
+            y_train=y_train)
+    np.savez(os.path.join(saveFolder, "valid_data.npz"), 
+            X_valid=X_valid,  # Convert to a single array
+            y_valid=y_valid)
 
-    # Create and compile model
+    #create and compile model
     model = spectrogram_CNN()
     model.compile(optimizer=Adam(learning_rate=0.003484660925656064, beta_1=0.886221166624916, beta_2=0.9059015852303618), loss=cosine_similarity_loss, metrics=['accuracy', cosine_similarity])
 
@@ -213,7 +199,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         verbose=1
     )
 
-    # Train model
+    #train model
     model.fit(
         X_train, y_train,
         batch_size=4,
@@ -224,7 +210,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         validation_data=(X_valid, y_valid)
     )
 
-    # Evaluate model
+    #evaluate model
     test_loss, test_acc, test_cosine_sim = model.evaluate(X_test, y_test)
     print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}, Test Cosine Similarity: {test_cosine_sim}")
     with open(os.path.join(saveFolder, "results.txt"), "w") as f:
@@ -232,109 +218,96 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         f.write(f"Test Accuracy: {test_acc}\n")
         f.write(f"Test Cosine Similarity: {test_cosine_sim}\n")
 
+    output_file = "ranking_results.txt"
 
-
-    ##visualise the predictions
+    # Run prediction
     predictions = model.predict(X_test, verbose=0)
 
+    # Compute basic cosine similarities (prediction vs actual for same index)
     cosine_similarities = np.sum(predictions * y_test, axis=-1) / (
         np.linalg.norm(predictions, axis=-1) * np.linalg.norm(y_test, axis=-1)
     )
 
-    print("\nTest Predictions and Cosine Similarities:")
-    for i in range(min(5, len(y_test))):
-        print(f"Sample {i}:")
-        print(f"  Predicted Vector: {predictions[i][:45]}...")
-        print(f"  True Vector: {y_test[i][:45]}...")
-        print(f"  Cosine Similarity: {cosine_similarities[i]:.4f}")
-        print("-" * 50)
+    # Write all output to file
+    with open(output_file, "w") as f:
+        f.write(f"Test loss: {test_loss}\n")
+        f.write(f"Test Accuracy: {test_acc}\n")
+        f.write(f"Test Cosine Similarity: {test_cosine_sim}\n")
 
-    #post analysis, ranking prediction against actual labels
+        f.write("Test Predictions and Cosine Similarities (first 5 samples):\n")
+        for i in range(min(5, len(y_test))):
+            f.write(f"\nSample {i}: Word = {X_test_words[i]}\n")
+            f.write(f"  Predicted Vector: {predictions[i][:45].tolist()}...\n")
+            f.write(f"  True Vector: {y_test[i][:45].tolist()}...\n")
+            f.write(f"  Cosine Similarity: {cosine_similarities[i]:.4f}\n")
+            f.write("-" * 50 + "\n")
 
-    ranks = []  # To store the ranks of the correct labels
+        # ---------- RANKING ----------
+        f.write("\nRanking each prediction against all possible labels:\n")
+        ranks = []
 
+        for i in range(len(X_test_words)):
+            similarities = []
+            for j in range(len(y_test)):
+                pred_tensor = tf.constant([predictions[i]], dtype=tf.float32)
+                true_tensor = tf.constant([y_test[j]], dtype=tf.float32)
+                sim = cosine_similarity(true_tensor, pred_tensor)
+                similarities.append(float(sim.numpy()))
 
-    for i in range(len(X_test_words)):
-        similarities = []
-        for j in range(len(y_test)):
-            # Convert numpy arrays to TensorFlow tensors
-            pred_tensor = tf.constant([predictions[i]], dtype=tf.float32)
-            true_tensor = tf.constant([y_test[j]], dtype=tf.float32)
-            
-            # Use your cosine_similarity function with TensorFlow tensors
-            sim = cosine_similarity(true_tensor, pred_tensor)
-            
-            # Execute the TensorFlow operation and get the result as a numpy value
-            sim_value = float(sim.numpy())
-            similarities.append(sim_value)
-        
-        # Convert to numpy array
-        similarities = np.array(similarities)
-        
-        # Sort indices in descending order (highest similarity first)
-        sorted_indices = np.argsort(similarities)[::-1]
-        
-        # Find the position of the correct index (which is i)
-        correct_index = np.where(sorted_indices == i)[0][0]
-        
-        # Add the rank to our list
-        ranks.append(correct_index)
+            similarities = np.array(similarities)
+            sorted_indices = np.argsort(similarities)[::-1]
+            correct_index = np.where(sorted_indices == i)[0][0]
+            ranks.append(correct_index)
 
-    print ("Number of samples", len(X_test_words))
-    print("Ranks of correct labels:", ranks)
-    print(f"Mean Reciprocal Rank: {np.mean(1 / (np.array(ranks) + 1))}")
-    print(f"Median rank: {np.median(ranks)}")
-    print(f"Top-1 accuracy: {sum(np.array(ranks) == 0) / len(ranks)}")
-    print(f"Top-5 accuracy: {sum(np.array(ranks) < 5) / len(ranks)}")
+        ranks = np.array(ranks)
 
-    print ("______ CHAGPT simialrity matrix code_____")
+        f.write(f"Number of samples: {len(X_test_words)}\n")
+        f.write(f"Ranks of correct labels: {ranks.tolist()}\n")
+        f.write(f"Mean Reciprocal Rank: {np.mean(1 / (ranks + 1)):.4f}\n")
+        f.write(f"Median rank: {np.median(ranks)}\n")
+        f.write(f"Top-1 accuracy: {np.mean(ranks == 0):.4f}\n")
+        f.write(f"Top-5 accuracy: {np.mean(ranks < 5):.4f}\n")
 
-    # Number of test samples
-    num_samples = len(y_test)  
+        # ---------- SIMILARITY MATRIX ----------
+        f.write("\nFull Cosine Similarity Matrix and Rank Analysis:\n")
+        num_samples = len(y_test)
+        similarity_matrix = np.zeros((num_samples, num_samples))
 
-    # Initialize similarity matrix
-    similarity_matrix = np.zeros((num_samples, num_samples))
+        for i in range(num_samples):
+            for j in range(num_samples):
+                pred_tensor = tf.constant([predictions[i]], dtype=tf.float32)
+                true_tensor = tf.constant([y_test[j]], dtype=tf.float32)
+                sim = cosine_similarity(true_tensor, pred_tensor)
+                similarity_matrix[i, j] = float(sim.numpy())
 
-    # Compute cosine similarity between all pairs (prediction[i], true_label[j])
-    for i in range(num_samples):
-        for j in range(num_samples):
-            # Convert numpy arrays to TensorFlow tensors
-            pred_tensor = tf.constant([predictions[i]], dtype=tf.float32)
-            true_tensor = tf.constant([y_test[j]], dtype=tf.float32)
+        sorted_indices = np.argsort(-similarity_matrix, axis=1)
+        matrix_ranks = np.array([np.where(sorted_indices[i] == i)[0][0] for i in range(num_samples)])
 
-            # Compute cosine similarity
-            sim = cosine_similarity(true_tensor, pred_tensor)
+        f.write(f"\nRanks of correct labels from matrix: {matrix_ranks.tolist()}\n")
+        f.write(f"Mean Reciprocal Rank: {np.mean(1 / (matrix_ranks + 1)):.4f}\n")
+        f.write(f"Median Rank: {np.median(matrix_ranks)}\n")
+        f.write(f"Top-1 Accuracy: {np.mean(matrix_ranks == 0):.4f}\n")
+        f.write(f"Top-5 Accuracy: {np.mean(matrix_ranks < 5):.4f}\n\n")
 
-            # Store the similarity score
-            similarity_matrix[i, j] = float(sim.numpy())
+        #also written in BP:
+        #x_test_words = the words used for testing
+        #predictions = the predicted labels
+        #y_test = the true labels
 
-    # Sort each row in descending order and get ranking indices
-    sorted_indices = np.argsort(-similarity_matrix, axis=1)  # Negative for descending order
+        f.write("Cosine Similarity Matrix:\n")
+        np.set_printoptions(threshold=np.inf, linewidth=200)
+        f.write(np.array2string(similarity_matrix, precision=4, suppress_small=True))
 
-    # Get ranks of correct labels (where i == j)
-    ranks = np.array([np.where(sorted_indices[i] == i)[0][0] for i in range(num_samples)])
+    print(f"All results written to {output_file}")
 
-    # Print analysis
-    print("Number of test samples:", num_samples)
-    print("Ranks of correct labels:", ranks)
-    print(f"Mean Reciprocal Rank: {np.mean(1 / (ranks + 1)):.4f}")
-    print(f"Median Rank: {np.median(ranks)}")
-    print(f"Top-1 Accuracy: {np.mean(ranks == 0):.4f}")
-    print(f"Top-5 Accuracy: {np.mean(ranks < 5):.4f}")
-
-    # Optional: Print similarity matrix for inspection
-    print("Cosine Similarity Matrix:")
-    print(similarity_matrix)
-
-
-
-    #predictions - predicted vectors
-    #y_test - true vectors
-    #X_test_words - contains the word
-
+    # Final return
     return model
 
-folders_path = os.path.join(current_directory, "../spectrogramDataHighGranFull")
+
+
+
+# folders_path = os.path.join(current_directory, "../spectrogramDataHighGranFull")
+folders_path = "/user/work/dk22310/spectrogramDataHighGranFull2"
 folders_names = ["content", "function"]
 
 # Prepare dataset

@@ -39,21 +39,43 @@ def log_optuna_trial(trial_number, params, accuracy):
 def spectrogram_CNN(trial):
     """Creates a CNN model with parameters from Optuna trial."""
     # Hyperparameters to optimize
-    filters = trial.suggest_int('filters', 16, 128, step=8)  # Number of Conv filters
+    filters1 = trial.suggest_int('filters1', 16, 128, step=8)  # First Conv layer filters
+    filters2 = trial.suggest_int('filters2', 32, 256, step=16)  # Second Conv layer filters
     kernel_size_h = trial.suggest_int('kernel_size_h', 3, 9, step=2)  # Kernel height
     kernel_size_w = trial.suggest_int('kernel_size_w', 3, 9, step=2)  # Kernel width
-    pool_size = trial.suggest_int('pool_size', 2, 4)  # Pooling size (no step needed)
+    pool_size1 = trial.suggest_int('pool_size1', 2, 3)  # First pooling size
+    pool_size2 = trial.suggest_int('pool_size2', 2, 3)  # Second pooling size
+    
+    # Add branch dense layer parameters
+    branch_dense_units = trial.suggest_int('branch_dense_units', 32, 256, step=32)  # Branch dense units
+    branch_dropout_rate = trial.suggest_float('branch_dropout_rate', 0.1, 0.5)  # Branch dropout rate
+    
+    # Final dense layer parameters
     dense_units = trial.suggest_int('dense_units', 64, 512, step=32)  # Dense layer units
-    dropout_rate = trial.suggest_float('dropout_rate', 0.1, 0.5)  # Dropout rate (unchanged)
+    dropout_rate = trial.suggest_float('dropout_rate', 0.1, 0.5)  # Dropout rate
 
-    # Model structure (similar to original)
+    # Model structure with branch dense layers
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
     cnn_outputs = []
     for input_layer in inputs:
-        x = Conv2D(filters=filters, kernel_size=(kernel_size_h, kernel_size_w), 
-                   activation='relu', padding='same')(input_layer)
-        x = MaxPool2D(pool_size=(pool_size, pool_size))(x)
+        # First Conv-BatchNorm-MaxPool block
+        x = Conv2D(filters=filters1, kernel_size=(kernel_size_h, kernel_size_w), 
+                  activation='relu', padding='same')(input_layer)
+        x = BatchNormalization()(x)
+        x = MaxPool2D(pool_size=(pool_size1, pool_size1))(x)
+        
+        # Second Conv-BatchNorm-MaxPool block
+        x = Conv2D(filters=filters2, kernel_size=(3, 3),  # Using smaller kernel for second layer
+                  activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = MaxPool2D(pool_size=(pool_size2, pool_size2))(x)
+        
         x = Flatten()(x)
+        
+        # Add branch dense layer before concatenation
+        x = Dense(branch_dense_units, activation='relu')(x)
+        x = Dropout(branch_dropout_rate)(x)
+        
         cnn_outputs.append(x)
     combined = Concatenate()(cnn_outputs)
     x = Dense(dense_units, activation='relu')(combined)
@@ -155,14 +177,6 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
     # Batch size
     batch_size = trial.suggest_categorical('batch_size', [4, 8, 16, 32])
     
-    # Create model checkpoint callback for this trial
-    # checkpoint_callback = ModelCheckpoint(
-    #     os.path.join(trial_folder, "model_best.keras"),
-    #     monitor="val_accuracy",
-    #     save_best_only=True,
-    #     verbose=0
-    # )
-    
     # Early stopping callback
     early_stopping = EarlyStopping(
         monitor="val_accuracy",
@@ -186,7 +200,6 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
         epochs=20,  # Reduced for optimization, increase for final model
         verbose=0,  # Reduced verbosity for cleaner output
         shuffle=True,
-        # callbacks=[checkpoint_callback, early_stopping, pruning_callback],
         callbacks=[early_stopping, pruning_callback],
         validation_data=(X_valid, y_valid)
     )
@@ -194,11 +207,13 @@ def objective(trial, X_train, X_valid, y_train, y_valid):
     # Get best validation accuracy
     val_accuracy = max(history.history['val_accuracy'])
     
-    # Log the results
+    # Log the results with new parameters
     params = {
         'filters': trial.params['filters'],
         'kernel_size': (trial.params['kernel_size_h'], trial.params['kernel_size_w']),
         'pool_size': trial.params['pool_size'],
+        'branch_dense_units': trial.params['branch_dense_units'],
+        'branch_dropout_rate': trial.params['branch_dropout_rate'],
         'dense_units': trial.params['dense_units'],
         'dropout_rate': trial.params['dropout_rate'],
         'learning_rate': trial.params['learning_rate'],
@@ -291,6 +306,6 @@ folders_names = ["content", "function"]
 X_train, X_test, X_valid, y_train, y_test, y_valid = NN_prep(folders_path, folders_names)
 
 study = optuna.create_study(direction="maximize")
-study.optimize(lambda trial: objective(trial, X_train, X_valid, y_train, y_valid), n_trials=10)
+study.optimize(lambda trial: objective(trial, X_train, X_valid, y_train, y_valid), n_trials=100)
 
 print ("ended without crashing")

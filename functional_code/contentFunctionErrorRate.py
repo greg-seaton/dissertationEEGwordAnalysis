@@ -1,5 +1,5 @@
 import nltk
-from nltk import pos_tag, word_tokenize
+from nltk import pos_tag
 import os
 import re
 import shutil
@@ -10,23 +10,14 @@ nltk.download("punkt")
 
 # Function words POS tags (closed class words)
 FUNCTION_TAGS = {
-    "DT",   # Determiner (e.g., the, a, an)
-    "CC",   # Coordinating conjunction (e.g., and, but, or)
-    "IN",   # Preposition or subordinating conjunction (e.g., in, on, of, because)
-    "PRP",  # Personal pronoun (e.g., he, she, it, they)
-    "PRP$", # Possessive pronoun (e.g., his, her, their)
-    "TO",   # "to" as a preposition or infinitive marker
-    "MD",   # Modal verb (e.g., can, will, must)
-    "WP",   # Wh-pronoun (e.g., who, what, which)
-    "WRB",  # Wh-adverb (e.g., when, where, why)
-    "EX"    # Existential "there"
+    "DT", "CC", "IN", "PRP", "PRP$", "TO", "MD", "WP", "WRB", "EX"
 }
+
+
 def classify_word_nltk(word):
-    """Classifies a word as 'Content word' or 'Function word' using NLTK POS tagging."""
-    word = word.lower()  # Convert word to lowercase
+    word = word.lower()  #convert word to lowercase
     
-    # Tokenize and POS tag the word
-    tag = pos_tag([word])[0][1]  # Get the POS tag
+    tag = pos_tag([word])[0][1]  #get the POS tag
     
     if tag in FUNCTION_TAGS:
         return "function"
@@ -42,11 +33,9 @@ def extract_word(dir):
         print ("error1:", filename)
         return None
         
-    # Remove 'content' or 'function' from the start
+    #extract only the word from each file name
     filename = re.sub(r'^(content|function)', '', filename)
-
-    # Extract words that are NOT part of the numbers
-    matches = re.findall(r'[a-zA-Z]+', filename)  # Find all words
+    matches = re.findall(r'[a-zA-Z]+', filename)
 
     if matches:
         return matches[0]
@@ -64,7 +53,7 @@ def main():
     for folder in folders:
         print ("\n\n\n",folder)
         for i in range (1,pariticpants+1):
-            directory = "/home/greg/Documents/GregCode/spectrogramDataBig1channel/"+folder+"/"+str(i)+"/"
+            directory = "/home/greg/Documents/GregCode/dataSets/spectrogramDataBig1channel/"+folder+"/"+str(i)+"/"
             word_folders = os.listdir(directory)  # List all files and folders
             print (len(word_folders))
             for word_folder in word_folders:
