@@ -20,15 +20,9 @@ spectrogramDataHighGranFull2
 ./folderToSubmit/models/finalEEG2vec/model_epoch02_valloss0.3225.keras
 ./folderToSubmit/models/penultimateEEG2vec/test_data.npz
 ./folderToSubmit/models/penultimateEEG2vec/model_epoch02_valloss0.2969.keras
-./.git/objects/pack/pack-06f238677d26e6adfe6e4f8746c7ed186a3cffba.pack
-./.git/objects/pack/tmp_pack_QSMbNg
-./.git/objects/pack/tmp_pack_HOSTnf
-./.git/objects/pack/pack-e980885798d912a5d405d36838edaa0405ce499e.pack
-./.git/objects/1e/cc98fe16d133ab9ed14d9369160d61844de7be
-./.git/objects/a3/d49369d04d51c9d7bca77d3e1857e66fdecc65
-./.git/objects/d2/4c4c93f9a30a6fc44e38dd87278df96eaf2d79
-./.git/objects/83/7b3ed04e8ec7c9bf4da8b80d763fd3e5a0fd29
 ./glove-wiki-gigaword-100
 folderToSubmit/models/finalEEG2vec/train_data.npz
 folderToSubmit/models/finalEEG2vec/valid_data.npz
 folderToSubmit/models/finalEEG2vec/test_data.npz
+folderToSubmit/models/finalEEG2vec/model_epoch02_valloss0.3225.keras
+folderToSubmit/models/finalEEG2vec/model_epoch02_valloss0.3225.zipfolderToSubmit/models/finalEEG2vec/model_epoch02_valloss0.3225.keras
