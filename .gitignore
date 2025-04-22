@@ -1,4 +1,5 @@
 dataSets/
+spectrogramDataHighGran/
 nlpNN/savedNLPmodels
 ultimateOptuna/savedNLPmodels
 ultimateOptuna/savedCFmodels
@@ -28,3 +29,6 @@ spectrogramDataHighGranFull2
 ./.git/objects/d2/4c4c93f9a30a6fc44e38dd87278df96eaf2d79
 ./.git/objects/83/7b3ed04e8ec7c9bf4da8b80d763fd3e5a0fd29
 ./glove-wiki-gigaword-100
+folderToSubmit/models/finalEEG2vec/train_data.npz
+folderToSubmit/models/finalEEG2vec/valid_data.npz
+folderToSubmit/models/finalEEG2vec/test_data.npz
