@@ -26,8 +26,8 @@ def load_glove_model(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         for line in f:
             values = line.split()
-            word = values[0]  # First token is the word
-            vector = np.array(values[1:], dtype=np.float32)  # Rest are vector values
+            word = values[0] 
+            vector = np.array(values[1:], dtype=np.float32)
             word_vectors[word] = vector
     return word_vectors
 
@@ -77,6 +77,7 @@ def cosine_similarity_loss(y_true, y_pred):
 def cosine_similarity(y_true, y_pred):
     return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))    
 
+#extracts all the data from the folders
 def NN_prep(folders_path, folders_names):
     label_map = {"content": 0, "function": 1}
     train_files = []
@@ -150,6 +151,7 @@ def load_sample(folder_path):
 
     return sample_data
 
+#all these hyperparameters were found by optuna
 def spectrogram_CNN():
     inputs = [Input(shape=(56, 107, 1)) for _ in range(32)]
     cnn_outputs = []
@@ -168,22 +170,22 @@ def spectrogram_CNN():
 
         cnn_outputs.append(x)
     combined = Concatenate()(cnn_outputs)
-    x = Dense(128, activation='relu')(combined) #changed to from 512 (optuna) to 256 for speed and testing
+    x = Dense(128, activation='relu')(combined)
     x = BatchNormalization()(x)
-    x = Dropout(0.253325747247369)(x)  # Increased dropout
+    x = Dropout(0.253325747247369)(x)
     output = Dense(100, activation='linear')(x)
     model = Model(inputs=inputs, outputs=output)
     return model
 
 def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
     np.savez(os.path.join(saveFolder, "test_data.npz"), 
-            X_test=X_test,  # Convert to a single array
+            X_test=X_test,  
             y_test=y_test)
     np.savez(os.path.join(saveFolder, "train_data.npz"), 
-            X_train=X_train,  # Convert to a single array
+            X_train=X_train, 
             y_train=y_train)
     np.savez(os.path.join(saveFolder, "valid_data.npz"), 
-            X_valid=X_valid,  # Convert to a single array
+            X_valid=X_valid,  
             y_valid=y_valid)
 
     #create and compile model
@@ -220,10 +222,12 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
 
     output_file = "ranking_results.txt"
 
-    # Run prediction
+    #get the preductions of X_test
     predictions = model.predict(X_test, verbose=0)
 
-    # Compute basic cosine similarities (prediction vs actual for same index)
+    #all of the following is displaying and saving info from the model
+
+    #get all cosine similarities between the predictions and y_test
     cosine_similarities = np.sum(predictions * y_test, axis=-1) / (
         np.linalg.norm(predictions, axis=-1) * np.linalg.norm(y_test, axis=-1)
     )
@@ -234,6 +238,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         f.write(f"Test Accuracy: {test_acc}\n")
         f.write(f"Test Cosine Similarity: {test_cosine_sim}\n")
 
+        #show predictions vs true to check its not just printing the same vector every time
         f.write("Test Predictions and Cosine Similarities (first 5 samples):\n")
         for i in range(min(5, len(y_test))):
             f.write(f"\nSample {i}: Word = {X_test_words[i]}\n")
@@ -242,7 +247,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
             f.write(f"  Cosine Similarity: {cosine_similarities[i]:.4f}\n")
             f.write("-" * 50 + "\n")
 
-        # ---------- RANKING ----------
+        #rankings predicted vectors vs actual vectors
         f.write("\nRanking each prediction against all possible labels:\n")
         ranks = []
 
@@ -261,6 +266,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
 
         ranks = np.array(ranks)
 
+        #
         f.write(f"Number of samples: {len(X_test_words)}\n")
         f.write(f"Ranks of correct labels: {ranks.tolist()}\n")
         f.write(f"Mean Reciprocal Rank: {np.mean(1 / (ranks + 1)):.4f}\n")
@@ -289,7 +295,7 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
         f.write(f"Top-1 Accuracy: {np.mean(matrix_ranks == 0):.4f}\n")
         f.write(f"Top-5 Accuracy: {np.mean(matrix_ranks < 5):.4f}\n\n")
 
-        #also written in BP:
+        #also written in BP version:
         #x_test_words = the words used for testing
         #predictions = the predicted labels
         #y_test = the true labels
@@ -303,11 +309,8 @@ def NN(X_train, X_test, X_valid, y_train, y_test, y_valid, X_test_words):
     # Final return
     return model
 
-
-
-
 # folders_path = os.path.join(current_directory, "../spectrogramDataHighGranFull")
-folders_path = "/user/work/dk22310/spectrogramDataHighGranFull2"
+folders_path = "/user/work/dk22310/spectrogramDataHighGranFull2" #dataset path for BP
 folders_names = ["content", "function"]
 
 # Prepare dataset

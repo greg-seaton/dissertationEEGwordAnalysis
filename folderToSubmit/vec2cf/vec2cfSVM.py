@@ -5,6 +5,7 @@ from nltk import pos_tag
 from sklearn.metrics import accuracy_score
 import numpy as np
 from sklearn.svm import SVC
+from sklearn.model_selection import GridSearchCV
 
 nltk.download("averaged_perceptron_tagger")
 nltk.download("punkt")
@@ -45,6 +46,7 @@ train_words = [re.sub(r'\d+$', '', word) for word in train_words] #remove the tr
 test_words = [re.sub(r'\d+$', '', word) for word in test_words] #remove the trailing numbers
 
 
+
 def classifyCF(word):
     word = word.lower()  #convert word to lowercase
     
@@ -59,32 +61,31 @@ y_train=np.array([classifyCF(word) for word in train_words])
 y_test=np.array([classifyCF(word) for word in test_words])
 
 #ML Method: SVM
+#overwriting x_train and x_test to get baseline results, this should normally be commented out
+testTrain_path = os.path.join(folder, "testTrain_baseline.npz")
+X_testTrain = np.load(testTrain_path, allow_pickle=True)
+X_train = X_testTrain["train_baseline"]
+X_test = X_testTrain["test_baseline"]
+
 
 #rbf, linear
 # (kernel="poly", degree=3)  # Try 2, 3, 4...
 
-clf = SVC(kernel="rbf")
-clf.fit(X_train, y_train)
 
-#predict and evaluate
-y_pred = clf.predict(X_test)
-acc = accuracy_score(y_test, y_pred)
+# param_grid = {
+#     'C': [0.01, 0.1, 1, 10],
+#     'kernel': ['linear', 'rbf']
+# }
 
-print("SVM accuracy:", acc)
+# grid = GridSearchCV(SVC(), param_grid, cv=4, verbose=3)
+# grid.fit(X_train, y_train)
 
-print ("checking lengths becuase the results are so good")
-print (X_train.shape)
-print (X_test.shape)
-print (y_train.shape)
-print (y_test.shape)
+# print("Best SVM Params:", grid.best_params_)
+# print("Grid Test Accuracy:", grid.score(X_test, y_test))
 
-print ("how many words in test set are contained in training set?")
-count=0
-for word in test_words:
-    if word in train_words:
-        print (word)
-        count+=1
 
-print (count)
 
+svm = SVC(kernel="rbf", C=1)
+svm.fit(X_train, y_train)
+print ("Test Accuracy", svm.score(X_test, y_test))
 

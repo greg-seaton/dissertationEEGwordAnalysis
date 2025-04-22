@@ -1,38 +1,34 @@
 import gensim.downloader as api
 import os
 import re
-
 import numpy as np
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 from sklearn.decomposition import PCA
 
-
 # Load GloVe word embeddings
 model = api.load("glove-wiki-gigaword-100")
 
 # Define folder names for dataset
 folder_names = ["content", "function"]
-folders_path = "../dataSets/spectrogramDataHighGran1participant/1"
+folders_path = "../dataSets/spectrogramDataHighGranFull/"
 words = []
 
-# Collect words from the dataset
+# Collect all words
 for folder in folder_names:
-    full_path = os.path.join(folders_path, folder)
+    full_path = os.path.join(folders_path, folder,"/1/")
 
     for word in os.listdir(full_path):
         word = re.sub(r"\d+$", "", word.lower())
         if word not in words:
             words.append(word)
 
-# Get word embeddings for the words
+print(len(words))
 word_vectors = []
 for word in words:
     word_vectors.append(model[word])
 
-
-##applying pca
 
 pca = PCA(n_components=3)  # reduce to 3 principal components
 word_vectors = pca.fit_transform(word_vectors)

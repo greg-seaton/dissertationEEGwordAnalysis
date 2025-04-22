@@ -3,7 +3,7 @@ import nltk
 from nltk import pos_tag
 from sklearn.metrics import accuracy_score
 import numpy as np
-
+import os
 nltk.download("averaged_perceptron_tagger")
 nltk.download("punkt")
 
@@ -11,11 +11,18 @@ FUNCTION_TAGS = {
     "DT", "CC", "IN", "PRP", "PRP$", "TO", "MD", "WP", "WRB", "EX"
 }
 
-x_test_words =['Gabriel', 'his30', 'eat', 'back2', 'proud', 'tucked', 'at12', 'office1', 'badly', 'sat4', 'Jake', 'and55', 'was14', 'he2', 'turned2', 'die1', 'The7', 'It', 'is5', 'his43', 'trick', 'the53', 'last1', 'closed2', 'down7', 'stomach', 'fire', 'called2', 'his7', 'out14', 'looking3', 'me3', 'comfort', 'tables', 'and8', 'all', 'right', 'said', 'walked9', 'early1', 'did', 'and47', 'four', 'too2', 'She2', 'of26', 'smiled5', 'calling1', 'that4', 'his53', 'you11', 'underneath', 'nursing', 'took', 'him1', 'racing', 'Anthony', 'heard2', 'to44', 'give2', 'don', 'It2', 'the18', 'shall', 'his33', 'to31', 'The9', 'within1', 'you6', 'him9', 'will2', 'you2', 'own', 'is', 'him', 'to26', 'to36', 'aid', 'Whether', 'A2', 'just8', 'the2', 'We', 'do2', 'a22', 'a36', 'a', 'Jim', 'the78', 'shock', 'bit1', 'perfect', 'should', 'after', 'way3', 'and38', 'of23', 'up13', 'and39', 'of10', 'to1', 'little2', 'Billy1', 'him12', 'men2', 'me1', 'drink', 'back7', 'the14', 'soldier', 'first1', 'the87', 'hands', 'heaved', 'hands2', 'if2', 'big', 'the50', 'I9', 'morning', 'his13', 'slammed', 'on8', 'steady', 'and59', 'go3', 'Jimmy', 'Bob', 'follow2', 'gave3', 'breath1', 'Turn', 'to51', 'else', 'it2', 'smiled1', 'against4', 'took3', 'Roger', 'place', 'trying', 'Men', 'things2', 'me5', 'Sam', 'follow1', 'Jack', 'she8', 'door2', 'that2', 'sandwich', 'the77', 'sighed1', 'door3', 'you1', 'home2', 'breakfast', 'It1', 'his9', 'idea', 'a5', 'Bernard', 'demands', 'bowls', 'to', 'fork', 'After', 'the45', 'pockets', 'enough', 'escape1', 'had6', 'Barbara', 'not1', 'predicted', 'the46', 'axe', 'to2', 'as3', 'walked6', 'was6', 'truck3', 'would', 'Andy1', 'laid', 'his35', 'They', 'a31', 'and71', 'I18', 'he16', 'broken1', 'now1', 'on11', 'one', 'instead', 'was18', 'and12', 'wiped1', 'his6', 'talk2', 'and2', 'tell', 'truck2', 'he18', 'a33', 'and64', 'She7', 'horse', 'but', 'photograph', 'the8', 'the83', 'and15', 'ability', 'be3', 'sniffed', 'still', 'to54', 'stayed', 'mug', 'got', 'I1', 'my2', 'we1', 'Steve', 'Bruce', 'to22', 'light', 'and7', 'chance', 'stomach1', 'but5', 'let2', 'their', 'when4', 'plate', 'to18', 'him2', 'voice', 'with6', 'step1', 'chocolate', 'getting2', 'like4', 'demand', 'The15', 'back6', 'the3', 'of11', 'follow', 'out9', 'He17', 'at5', 'he4', 'almost2', 'heard1', 'dad', 'against5', 'for3', 'to53', 'more3', 'I2', 'when2', 'the58', 'morning4', 'had5', 'mother1', 'Ian', 'this2', 'just2', 'out3', 'trench', 'rather', 'enter', 'The14', 'He19', 'and67', 'again1', 'back9', 'and4']
+words_path = os.path.join("data", "words_labels.npz")
+words = np.load(words_path, allow_pickle=True)  
+x_test_words = words["test_words"] #words
 x_test_words = [re.sub(r'\d+$', '', word) for word in x_test_words] #remove the trailing numbers
 
-test_data = np.load("data/test_x.npz", allow_pickle=True)  
-predictions = test_data["predictions_test"] #vectors
+test_data = np.load("data/test_data.npz", allow_pickle=True)  
+predictions = test_data["predictions_test"] #predicted vectors to test vs avgContent and avgFunction vectors
+
+#this overwrites predictions to test the base on true labels (vectors)
+# baseline_path = os.path.join("data", "testTrain_baseline.npz")
+# words = np.load(baseline_path, allow_pickle=True)  
+# predictions = words["test_baseline"] #words
 
 avgContentVec = np.array([
      1.6113760e-02, -2.7301470e-02, -4.2580515e-02,  3.3281676e-02,
