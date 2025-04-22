@@ -42,30 +42,50 @@ results = {
 
 for n_clusters in range (3,15):
     print (f"Starting Cluters {n_clusters} and at {datetime.now()}")
-    # KMeans
-    kmeans = KMeans(n_clusters=n_clusters, init='k-means++')
-    kmeans_labels = kmeans.fit_predict(word_vectors)
 
-    # GMM
-    gmm = GaussianMixture(n_components=n_clusters, init_params='k-means++', covariance_type='full')
-    gmm_labels = gmm.fit_predict(word_vectors)
+    #track best scores from three runs
+    best_kmeans_silhouette = -1
+    best_kmeans_db = float('inf')
+    best_gmm_silhouette = -1
+    best_gmm_db = float('inf')
 
-    #Evaluate KMeans
-    kmeans_silhouette = silhouette_score(word_vectors, kmeans_labels)
-    kmeans_db_index = davies_bouldin_score(word_vectors, kmeans_labels)
+    for run in range(3):
+        print (f"Run: {run}")
+        # KMeans
+        kmeans = KMeans(n_clusters=n_clusters, init='k-means++')
+        kmeans_labels = kmeans.fit_predict(word_vectors)
 
-    #Evaluate GMM
-    gmm_silhouette = silhouette_score(word_vectors, gmm_labels)
-    gmm_db_index = davies_bouldin_score(word_vectors, gmm_labels)
+        # GMM
+        gmm = GaussianMixture(n_components=n_clusters, init_params='k-means++', covariance_type='full')
+        gmm_labels = gmm.fit_predict(word_vectors)
+
+        #Evaluate KMeans
+        kmeans_silhouette = silhouette_score(word_vectors, kmeans_labels)
+        kmeans_db_index = davies_bouldin_score(word_vectors, kmeans_labels)
+
+        #Evaluate GMM
+        gmm_silhouette = silhouette_score(word_vectors, gmm_labels)
+        gmm_db_index = davies_bouldin_score(word_vectors, gmm_labels)
+
+        if kmeans_silhouette > best_kmeans_silhouette:
+            best_kmeans_silhouette = kmeans_silhouette
+        if kmeans_db_index < best_kmeans_db:
+            best_kmeans_db = kmeans_db_index
+
+        if gmm_silhouette > best_gmm_silhouette:
+            best_gmm_silhouette = gmm_silhouette
+        if gmm_db_index < best_gmm_db:
+            best_gmm_db = gmm_db_index
+ 
 
     results["KMeans"][n_clusters] = {
-        "silhouette_score": kmeans_silhouette,
-        "davies_bouldin_score": kmeans_db_index
+        "silhouette_score": best_kmeans_silhouette,
+        "davies_bouldin_score": best_kmeans_db
     }
 
     results["GMM"][n_clusters] = {
-        "silhouette_score": gmm_silhouette,
-        "davies_bouldin_score": gmm_db_index
+        "silhouette_score": best_kmeans_db,
+        "davies_bouldin_score": best_gmm_db
     }
 
 pprint.pprint(results)

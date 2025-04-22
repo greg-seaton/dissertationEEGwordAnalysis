@@ -13,7 +13,7 @@ def cosine_similarity(y_true, y_pred):
     return K.sum(y_true * y_pred, axis=-1) / (K.sqrt(K.sum(y_true**2, axis=-1)) * K.sqrt(K.sum(y_pred**2, axis=-1)))
 
 folder = "models/finalEEG2vec"     ##change this to look at different runs
-model_path = os.path.join(folder, "model_epoch02_valloss0.3225.keras")
+model_path = os.path.join(folder, "model_epoch01_valloss0.3238.keras")
 data_path = os.path.join(folder, "test_data.npz")
 
 if not (os.path.exists(model_path)):
@@ -51,8 +51,8 @@ print(f"Shape of first input array: {X_test_list[0].shape}")
 print("Evaluating model...")
 test_loss, test_acc, test_cosine_sim = model.evaluate(X_test_list, y_test)
 predictions_test = model.predict(X_test_list, verbose=0)
-np.savez_compressed("test_data.npz", 
-                    predictions_test=predictions_test)
+# np.savez_compressed("test_data.npz", 
+#                     predictions_test=predictions_test)
 
 print(f"Test loss: {test_loss}, Test Accuracy: {test_acc}, Test Cosine Similarity: {test_cosine_sim}")
 
@@ -79,5 +79,5 @@ predictionsXvalid = model.predict(X_valid_list, verbose=0)
 
 predictions_train = np.concatenate([predictionsXtrain, predictionsXvalid], axis=0)
 
-np.savez_compressed("train_data.npz", 
-                    predictions_train=predictions_train)
+# np.savez_compressed("train_data.npz", 
+#                     predictions_train=predictions_train)
