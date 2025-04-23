@@ -65,10 +65,10 @@ y_test=np.array([classifyCF(word) for word in test_words])
 
 #ml ENSEMBLE
 #overwriting x_train and x_test to get baseline results, this should normally be commented out
-testTrain_path = os.path.join(folder, "testTrain_baseline.npz")
-X_testTrain = np.load(testTrain_path, allow_pickle=True)
-X_train = X_testTrain["train_baseline"]
-X_test = X_testTrain["test_baseline"]
+# testTrain_path = os.path.join(folder, "testTrain_baseline.npz")
+# X_testTrain = np.load(testTrain_path, allow_pickle=True)
+# X_train = X_testTrain["train_baseline"]
+# X_test = X_testTrain["test_baseline"]
 
 #define 3 best performing base models
 svm = SVC(kernel="rbf", C=1, probability=True, random_state=42)

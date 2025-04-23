@@ -67,14 +67,12 @@ X_train = X_testTrain["train_baseline"]
 X_test = X_testTrain["test_baseline"]
 
 param_grid = {
-    'hidden_layer_sizes': [(64, 64), (92), (128, 64, 32), (256,128), (512,256,128)],
-    'activation': ['relu', 'tanh', 'logistic'],
+    'hidden_layer_sizes': [(64, 64), (128), (128, 64, 32), (256,128), (512,256,128)],
     'solver': ['adam', 'sgd'],
-    'max_iter': [300, 500]
 }
 
 # Set up the MLP and GridSearchCV
-mlp = MLPClassifier(random_state=42)
+mlp = MLPClassifier(random_state=42, activation='relu')
 grid_search = GridSearchCV(mlp, param_grid, cv=3, scoring='accuracy', n_jobs=-1, verbose=2)
 
 # Run the search

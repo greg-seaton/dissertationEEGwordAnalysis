@@ -25,4 +25,3 @@ folderToSubmit/models/finalEEG2vec/train_data.npz
 folderToSubmit/models/finalEEG2vec/valid_data.npz
 folderToSubmit/models/finalEEG2vec/test_data.npz
 folderToSubmit/models/finalEEG2vec/model_epoch02_valloss0.3225.keras
-folderToSubmit/models/finalEEG2vec/model_epoch02_valloss0.3225.zipfolderToSubmit/models/finalEEG2vec/model_epoch02_valloss0.3225.keras

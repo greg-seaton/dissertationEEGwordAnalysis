@@ -62,30 +62,35 @@ y_test=np.array([classifyCF(word) for word in test_words])
 
 #ML Method: SVM
 #overwriting x_train and x_test to get baseline results, this should normally be commented out
-testTrain_path = os.path.join(folder, "testTrain_baseline.npz")
-X_testTrain = np.load(testTrain_path, allow_pickle=True)
-X_train = X_testTrain["train_baseline"]
-X_test = X_testTrain["test_baseline"]
+# testTrain_path = os.path.join(folder, "testTrain_baseline.npz")
+# X_testTrain = np.load(testTrain_path, allow_pickle=True)
+# X_train = X_testTrain["train_baseline"]
+# X_test = X_testTrain["test_baseline"]
 
 
 #rbf, linear
 # (kernel="poly", degree=3)  # Try 2, 3, 4...
 
 
-# param_grid = {
-#     'C': [0.01, 0.1, 1, 10],
-#     'kernel': ['linear', 'rbf']
-# }
+param_grid = {
+    'C': [0.1, 1, 10],
+    'kernel': ['rbf', 'linear', 'poly'],
+    'gamma': ['scale', 'auto', 0.01, 0.1], #for rbf and poly
+    'degree': [2, 3, 4], #for poly
+    'class_weight': ['balanced']
+}
 
-# grid = GridSearchCV(SVC(), param_grid, cv=4, verbose=3)
-# grid.fit(X_train, y_train)
 
-# print("Best SVM Params:", grid.best_params_)
-# print("Grid Test Accuracy:", grid.score(X_test, y_test))
+grid = GridSearchCV(SVC(), param_grid, cv=4, verbose=3)
+grid.fit(X_train, y_train)
+
+print("Best SVM Params:", grid.best_params_)
+print("Grid Test Accuracy:", grid.score(X_test, y_test))
 
 
 
 svm = SVC(kernel="rbf", C=1)
 svm.fit(X_train, y_train)
+print ("parms", svm.get_params())
 print ("Test Accuracy", svm.score(X_test, y_test))
 

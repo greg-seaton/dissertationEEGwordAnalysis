@@ -27,7 +27,7 @@ def load_glove_model(file_path="../../glove-wiki-gigaword-100"):
     sampled_words = random.sample(list(word_vectors.keys()), sample_size)
 
     #convert sampled_words into embedding vectors
-    word_vectors = [word_vectors[word] for word in sampled_words]
+    word_vectors = np.array([word_vectors[word] for word in sampled_words])
 
     return word_vectors
 
@@ -39,6 +39,7 @@ results = {
     "KMeans": {},
     "GMM": {}
 }
+
 
 for n_clusters in range (3,15):
     print (f"Starting Cluters {n_clusters} and at {datetime.now()}")
@@ -84,7 +85,7 @@ for n_clusters in range (3,15):
     }
 
     results["GMM"][n_clusters] = {
-        "silhouette_score": best_kmeans_db,
+        "silhouette_score": best_gmm_silhouette,
         "davies_bouldin_score": best_gmm_db
     }
 

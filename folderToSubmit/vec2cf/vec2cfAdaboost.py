@@ -6,6 +6,8 @@ from sklearn.metrics import accuracy_score
 import numpy as np
 from sklearn.svm import SVC
 from sklearn.ensemble import AdaBoostClassifier
+from sklearn.model_selection import GridSearchCV
+
 
 nltk.download("averaged_perceptron_tagger")
 nltk.download("punkt")
@@ -62,14 +64,26 @@ y_test=np.array([classifyCF(word) for word in test_words])
 #ML Method: adaBoost
 
 #overwriting x_train and x_test to get baseline results, this should normally be commented out
-testTrain_path = os.path.join(folder, "testTrain_baseline.npz")
-X_testTrain = np.load(testTrain_path, allow_pickle=True)
-X_train = X_testTrain["train_baseline"]
-X_test = X_testTrain["test_baseline"]
+# testTrain_path = os.path.join(folder, "testTrain_baseline.npz")
+# X_testTrain = np.load(testTrain_path, allow_pickle=True)
+# X_train = X_testTrain["train_baseline"]
+# X_test = X_testTrain["test_baseline"]
 
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'learning_rate': [0.01, 0.1, 1.0, 2.0],
+}
 
-ada_model = AdaBoostClassifier(n_estimators=100, learning_rate=1.0, random_state=42)
-ada_model.fit(X_train, y_train)
-ada_preds = ada_model.predict(X_test)
+ada = AdaBoostClassifier(random_state=42)
 
-print("AdaBoost Accuracy:", accuracy_score(y_test, ada_preds))
+grid_search = GridSearchCV(estimator=ada, param_grid=param_grid, cv=4, n_jobs=-1, verbose=1)
+
+# Fit the model to the training data
+grid_search.fit(X_train, y_train)
+
+# Get the best parameters and best score
+print("Best parameters found: ", grid_search.best_params_)
+print("Best cross-validation score: ", grid_search.best_score_)
+
+# Make predictions using the best model
+ada_preds = grid_search.best_estimator_.predict(X_test)
