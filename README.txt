@@ -1,99 +1,127 @@
 # EEG Language Decoding from Spectrogram Data (IRP Dissertation)
 
-## 📄 Full Dissertation Report
-👉 [Download PDF Dissertation](./Gregory_Seaton_IRP (1).pdf)
+---
+
+## Dissertation Report
+
+### Download Full PDF  
+[dissertation.pdf](./dissertation.pdf)
 
 ---
 
 ## Overview
 
-This Individual Research Project investigates whether EEG signals can be used to extract meaningful linguistic information, focusing on the relationship between brain activity and language processing.
+This project investigates whether EEG signals contain sufficient information to decode linguistic structure and meaning.
 
-The work explores multiple machine learning approaches using EEG spectrogram data to model linguistic features such as part-of-speech structure and word semantics.
+Multiple machine learning approaches were explored to map EEG spectrogram data to linguistic representations, including:
+- Part-of-speech style classification  
+- Word embedding prediction  
+- Unsupervised structure discovery  
+- Downstream classification using predicted embeddings  
+
+The goal was to evaluate how far EEG signals can support semantic and syntactic language decoding.
 
 ---
 
 ## Key Methodologies
 
-Four core experimental directions were explored:
+---
 
-### 1. Content vs Function Word Classification (POS-style task)
-A neural network was trained to classify whether EEG data corresponds to content or function words.
+### 1. Content vs Function Word Classification
 
-- Achieved improved training efficiency (reduced training time from **28:26 → 1:46**)
-- Improved stability of accuracy compared to previous implementations
-- Maximum accuracy achieved: **0.66**
-- Did not surpass prior benchmark performance
+A neural network was trained to classify EEG signals based on whether a participant was reading a content or function word.
+
+- Training time reduced from 28:26 to 1:46
+- Improved stability of accuracy across runs
+- Best accuracy: 0.66
+- Did not exceed prior benchmark performance
 
 ---
 
 ### 2. Predicting Word Embeddings from EEG
-A model was trained to predict continuous word embeddings from EEG signals.
 
-- Achieved cosine similarity of **0.67**
-- Statistical testing (t-test) confirmed results were significantly better than random
-- Indicates EEG contains meaningful semantic signal, though representation quality remains limited
+A regression model was trained to predict continuous word embeddings from EEG signals.
+
+- Cosine similarity: 0.67
+- Statistically significant improvement over random baseline (t-test)
+- Indicates EEG contains measurable semantic signal
+- Embedding fidelity remains limited
 
 ---
 
 ### 3. Clustering Word Embedding Space
+
 Unsupervised clustering methods were applied to pretrained GloVe embeddings.
 
-- No meaningful cluster structure was identified
-- Suggests limited separability in embedding space using standard clustering approaches
+- No meaningful cluster structure identified
+- Suggests limited separability using standard clustering methods
 
 ---
 
 ### 4. Classification Using Predicted Embeddings
+
 Predicted embeddings were evaluated on downstream classification tasks.
 
-- Best accuracy: **0.57**
-- Strong baseline performance using true embeddings (**0.96–0.99 accuracy**) confirmed strong separability between content and function words
-- Demonstrated that predicted embeddings retain partial linguistic signal
+- Best accuracy: 0.57
+- True embedding baseline: 0.96–0.99
+- Confirms strong separability in embedding space
+- Predicted embeddings retain partial linguistic structure
 
 ---
 
 ## Key Findings
 
-### Noise and Model Complexity
-- High-dimensional, noisy EEG data is highly sensitive to hyperparameter tuning
-- Over-parameterisation led to overfitting in multiple experiments
+### Noise and Model Sensitivity
+- EEG data is highly noisy and sensitive to hyperparameters
+- Over-parameterisation leads to overfitting
 
-### Representation Trade-offs
-- Spectrogram-to-CSV conversion significantly improved computational efficiency
-- However, this introduced trade-offs in interpretability and potentially reduced performance
+---
 
-### Contextual Limitations
+### Efficiency vs Performance Trade-off
+- Spectrogram to CSV conversion significantly improved computational efficiency
+- Introduced trade-offs in interpretability and performance
+
+---
+
+### Linguistic Context Matters
 - Word ambiguity limits embedding prediction accuracy
-- Contextual embedding models could significantly improve performance
-- This issue is less pronounced in part-of-speech classification
+- Contextual embeddings would likely improve performance
+- Part-of-speech classification is less affected due to structural consistency
 
-### Data Quality Constraints
-- EEG’s high noise-to-signal ratio limits achievable accuracy
-- Alternative modalities (e.g. fMRI) may improve feature quality but require new datasets
+---
+
+### Data Limitations
+- EEG has a low signal-to-noise ratio
+- More advanced modalities (e.g. fMRI) may improve results
+- Requires new datasets for further exploration
 
 ---
 
 ## Reflections
 
-While several approaches did not achieve strong predictive performance, the experiments consistently demonstrated that EEG signals contain measurable linguistic information.
+While not all approaches achieved strong predictive performance, results consistently indicate that EEG signals contain statistically meaningful linguistic information.
 
-A key outcome of this work is the validation that:
-- EEG carries statistically meaningful semantic signal
-- Word embeddings provide a viable intermediate representation for decoding language from neural activity
+Evidence for this includes:
+- Significant improvement over random baselines in embedding prediction
+- Strong separability in true embedding space classification tasks
 
 ---
 
-## Notes on Scope
+## Exploratory Work
 
-Several exploratory directions (e.g. clustering and embedding-based classification pipelines) were intentionally pursued to investigate alternative formulations of the problem. While not all yielded strong results, they contributed to a broader understanding of the limits of EEG-based language decoding.
+Several extensions (including clustering and embedding-based classification pipelines) were explored to broaden the scope of the project.
+
+While not all were successful, they provided insight into:
+- Limitations of EEG-based decoding
+- Structure of linguistic embedding spaces
+- Importance of focusing model complexity in noisy datasets
 
 ---
 
 ## Technologies
 
 - Python
-- PyTorch / TensorFlow (if applicable)
-- EEG spectrogram processing pipeline
+- PyTorch / TensorFlow
 - Scikit-learn
-- NLP embeddings (GloVe)
+- EEG spectrogram processing pipeline
+- GloVe word embeddings
