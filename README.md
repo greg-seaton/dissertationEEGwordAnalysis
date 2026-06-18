@@ -5,7 +5,7 @@
 ## Dissertation Report
 
 ### Download Full PDF  
-[dissertation.pdf](./Gregory_Seaton_IRP.pdf)
+[Gregory_Seaton_IRP.pdf](./Gregory_Seaton_IRP.pdf)
 
 ---
 
