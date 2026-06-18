@@ -11,7 +11,7 @@
 
 ## Overview
 
-This project investigates whether EEG signals contain sufficient information to decode linguistic structure and meaning.
+This project investigates whether EEG signals contain sufficient information to decode linguistic structure and meaning. It is a partial continuation and expansion of a dissertation project from a past student last year.
 
 Multiple machine learning approaches were explored to map EEG spectrogram data to linguistic representations, including:
 - Part-of-speech style classification  
@@ -31,7 +31,7 @@ The goal was to evaluate how far EEG signals can support semantic and syntactic 
 
 A neural network was trained to classify EEG signals based on whether a participant was reading a content or function word.
 
-- Training time reduced from 28:26 to 1:46
+- Training time reduced from 28:26 to 1:46 compared to implementation from previous student.
 - Improved stability of accuracy across runs
 - Best accuracy: 0.66
 - Did not exceed prior benchmark performance
